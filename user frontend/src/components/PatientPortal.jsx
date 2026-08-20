@@ -30,7 +30,7 @@ export default function PatientPortal({
   const [bookDisease, setBookDisease] = useState('');
   const [bookDepartment, setBookDepartment] = useState('General Medicine');
   const [bookPhone, setBookPhone] = useState('');
-  const [bookFile, setBookFile] = useState(null);
+  const [bookFiles, setBookFiles] = useState([]);
   const [bookSubmitting, setBookSubmitting] = useState(false);
 
   // Additional document upload state
@@ -195,15 +195,17 @@ export default function PatientPortal({
       formData.append('disease', bookDisease);
       formData.append('preferredDepartment', bookDepartment);
       formData.append('patientPhone', bookPhone);
-      if (bookFile) {
-        formData.append('supportingFile', bookFile);
+      if (bookFiles && bookFiles.length > 0) {
+        bookFiles.forEach((file) => {
+          formData.append('supportingFiles', file);
+        });
       }
 
       const res = await createAppointment(formData);
       if (res.success) {
         setAppointmentsList([res.appointment, ...appointmentsList]);
         setBookDisease('');
-        setBookFile(null);
+        setBookFiles([]);
         setBookPhone('');
         if (!isForSelf) {
           setBookPatientName('');
@@ -752,13 +754,13 @@ export default function PatientPortal({
               {/* Supporting File Attachment */}
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label style={{ fontWeight: 700, color: '#0f3b5e' }}>
-                  <i className="fas fa-paperclip" style={{ color: '#078930' }}></i> {isAm ? 'ደጋፊ የህክምና ሰነድ አያይዝ' : 'Attach Supporting Medical File for Admin Review'} ({isAm ? 'አማራጭ' : 'Optional'})
+                  <i className="fas fa-paperclip" style={{ color: '#078930' }}></i> {isAm ? 'ደጋፊ የህክምና ሰነዶችን አያይዝ' : 'Attach Supporting Medical Files for Admin Review'} ({isAm ? 'አማራጭ' : 'Optional'})
                 </label>
                 <div
                   style={{
                     border: '2px dashed #cbd5e1',
                     borderRadius: '10px',
-                    padding: '16px',
+                    padding: '18px',
                     textAlign: 'center',
                     background: '#f8fafc',
                     cursor: 'pointer',
@@ -767,24 +769,64 @@ export default function PatientPortal({
                 >
                   <i className="fas fa-file-medical-alt" style={{ fontSize: '28px', color: '#078930', marginBottom: '6px' }}></i>
                   <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-                    {bookFile ? `Selected: ${bookFile.name} (${(bookFile.size / (1024 * 1024)).toFixed(2)} MB)` : (isAm ? 'ሰነድ ለመምረጥ እዚህ ጠቅ ያድርጉ (PDF, JPG, PNG)' : 'Click to attach Lab Report, Referral, or ID (PDF, JPG, PNG up to 10MB)')}
+                    {isAm
+                      ? 'ሰነዶችን ለመምረጥ እዚህ ጠቅ ያድርጉ (PDF, Word, Images, DICOM, ZIP እስከ 25MB)'
+                      : 'Click to select Lab Reports, Referrals, DICOM Scans, Images, or Documents (PDF, DOCX, JPG, PNG, DICOM, ZIP up to 25MB)'}
                   </p>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                    {isAm ? 'አንድ ወይም ከዚያ በላይ ፋይሎችን በአንድ ጊዜ ማያያዝ ይችላሉ' : 'You can attach single or multiple files'}
+                  </span>
                   <input
                     type="file"
                     id="bookFileInput"
+                    multiple
                     style={{ display: 'none' }}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setBookFile(e.target.files[0])}
+                    accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.jpg,.jpeg,.png,.webp,.bmp,.gif,.tiff,.heic,.dcm,.dicom,.xls,.xlsx,.csv,.zip,.rar,.7z"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const newFiles = Array.from(e.target.files);
+                        setBookFiles((prev) => [...prev, ...newFiles]);
+                      }
+                    }}
                   />
                 </div>
-                {bookFile && (
-                  <button
-                    type="button"
-                    onClick={() => setBookFile(null)}
-                    style={{ background: 'none', border: 'none', color: '#da121a', fontSize: '12px', cursor: 'pointer', marginTop: '6px' }}
-                  >
-                    <i className="fas fa-times"></i> {isAm ? 'ሰነዱን አስወግድ' : 'Remove attached file'}
-                  </button>
+
+                {bookFiles.length > 0 && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {bookFiles.map((file, idx) => {
+                      const ext = (file.name || '').split('.').pop().toLowerCase();
+                      let iconClass = 'fas fa-file-alt';
+                      let iconColor = '#64748b';
+                      if (['pdf'].includes(ext)) { iconClass = 'fas fa-file-pdf'; iconColor = '#da121a'; }
+                      else if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'tiff', 'heic'].includes(ext)) { iconClass = 'fas fa-file-image'; iconColor = '#0284c7'; }
+                      else if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) { iconClass = 'fas fa-file-word'; iconColor = '#2563eb'; }
+                      else if (['xls', 'xlsx', 'csv'].includes(ext)) { iconClass = 'fas fa-file-excel'; iconColor = '#16a34a'; }
+                      else if (['zip', 'rar', '7z'].includes(ext)) { iconClass = 'fas fa-file-archive'; iconColor = '#d97706'; }
+                      else if (['dcm', 'dicom'].includes(ext)) { iconClass = 'fas fa-file-medical'; iconColor = '#7c3aed'; }
+
+                      return (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f1f5f9', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                            <i className={iconClass} style={{ fontSize: '18px', color: iconColor }}></i>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>
+                              {file.name}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                              ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setBookFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '14px' }}
+                            title="Remove file"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 

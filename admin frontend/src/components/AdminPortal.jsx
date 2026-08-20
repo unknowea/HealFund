@@ -650,6 +650,7 @@ function FinancialTab() {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All');
   const [form, setForm] = useState({ patientName: '', patientId: '', diagnosis: '', targetAmount: '', description: '', verifyingHospital: '', verifiedByDoctor: '' });
   const [saving, setSaving] = useState(false);
 
@@ -663,11 +664,15 @@ function FinancialTab() {
   };
   useEffect(() => { load(); }, []);
 
-  const handleStatusToggle = async (id, current) => {
-    await API(`/api/admin/financial-cases/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: current === 'Active' ? 'Closed' : 'Active' }) });
+  const handleStatusToggle = async (caseId, current) => {
+    await API(`/api/admin/financial-cases/${caseId}/status`, { method: 'PUT', body: JSON.stringify({ status: current === 'Active' ? 'Closed' : 'Active' }) });
     load();
   };
-  const handleDelete = async (id) => { await API(`/api/admin/financial-cases/${id}`, { method: 'DELETE' }); load(); };
+  const handleDelete = async (caseId) => {
+    if (!window.confirm('Delete this financial case?')) return;
+    await API(`/api/admin/financial-cases/${caseId}`, { method: 'DELETE' });
+    load();
+  };
   const handleCreate = async (e) => {
     e.preventDefault(); setSaving(true);
     try {
@@ -678,22 +683,53 @@ function FinancialTab() {
     } finally { setSaving(false); }
   };
 
+  const statusBadgeClass = (status) => {
+    if (status === 'Active') return 'status-verified';
+    if (status === 'Funded') return 'status-approved';
+    return 'status-pending'; // Closed
+  };
+
+  const filtered = statusFilter === 'All' ? cases : cases.filter((c) => c.status === statusFilter);
+
   return (
     <div>
       <div className="admin-toolbar">
         <h3 style={{ color: '#0f3b5e', fontSize: '17px', fontWeight: 700 }}><i className="fas fa-hand-holding-heart" style={{ color: '#e07b00' }}></i> Financial Cases</h3>
         <button className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '14px' }} onClick={() => setShowForm(true)}><i className="fas fa-plus"></i> New Case</button>
       </div>
+      {/* Status filter bar */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
+        {['All', 'Active', 'Funded', 'Closed'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            style={{
+              padding: '5px 16px', borderRadius: '20px', fontSize: '13px', cursor: 'pointer', fontWeight: statusFilter === s ? 700 : 400,
+              border: statusFilter === s ? '2px solid #0f3b5e' : '1.5px solid #d0d9e6',
+              background: statusFilter === s ? '#0f3b5e' : '#fff',
+              color: statusFilter === s ? '#fff' : '#4a5a6e',
+            }}
+          >
+            {s}
+            <span style={{ marginLeft: '6px', fontSize: '12px', opacity: 0.8 }}>
+              ({s === 'All' ? cases.length : cases.filter((c) => c.status === s).length})
+            </span>
+          </button>
+        ))}
+      </div>
       {loading ? <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i> Loading cases…</div> : (
         <div className="admin-cases-grid">
-          {cases.length === 0 && <div style={{ textAlign: 'center', color: '#7a8a9e', padding: '40px' }}>No financial cases yet.</div>}
-          {cases.map((c) => {
+          {filtered.length === 0 && <div style={{ textAlign: 'center', color: '#7a8a9e', padding: '40px' }}>No {statusFilter !== 'All' ? statusFilter.toLowerCase() + ' ' : ''}financial cases yet.</div>}
+          {filtered.map((c) => {
             const pct = c.targetAmount > 0 ? Math.min(100, Math.round((c.raisedAmount / c.targetAmount) * 100)) : 0;
             return (
-              <div key={c.id} className="admin-case-card">
+              <div key={c._id || c.caseId} className="admin-case-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <div><div style={{ fontWeight: 700, fontSize: '16px', color: '#0f3b5e' }}>{c.patientName}</div><div style={{ fontSize: '12px', color: '#7a8a9e' }}>{c.id} · {c.patientId}</div></div>
-                  <span className={`status-badge ${c.status === 'Active' ? 'status-verified' : 'status-pending'}`}>{c.status}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '16px', color: '#0f3b5e' }}>{c.patientName}</div>
+                    <div style={{ fontSize: '12px', color: '#7a8a9e' }}>{c.caseId} · {c.patientId}</div>
+                  </div>
+                  <span className={`status-badge ${statusBadgeClass(c.status)}`}>{c.status}</span>
                 </div>
                 <div style={{ fontSize: '14px', color: '#4a5a6e', marginBottom: '8px' }}><i className="fas fa-stethoscope" style={{ color: '#078930', marginRight: '6px' }}></i>{c.diagnosis}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '6px' }}>
@@ -703,10 +739,10 @@ function FinancialTab() {
                 <div className="progress-container"><div className="progress-bar-fill" style={{ width: pct + '%' }}></div></div>
                 <div style={{ fontSize: '13px', color: '#7a8a9e', margin: '6px 0 14px' }}><i className="fas fa-users" style={{ marginRight: '4px' }}></i>{fmt(c.donorsCount)} donors</div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className={`btn ${c.status === 'Active' ? 'btn-outline' : 'btn-success'}`} style={{ flex: 1, fontSize: '13px', padding: '6px 12px' }} onClick={() => handleStatusToggle(c.id, c.status)}>
+                  <button className={`btn ${c.status === 'Active' ? 'btn-outline' : 'btn-success'}`} style={{ flex: 1, fontSize: '13px', padding: '6px 12px' }} onClick={() => handleStatusToggle(c.caseId, c.status)}>
                     {c.status === 'Active' ? <><i className="fas fa-pause"></i> Close</> : <><i className="fas fa-play"></i> Reopen</>}
                   </button>
-                  <button className="admin-btn-danger" onClick={() => handleDelete(c.id)}><i className="fas fa-trash"></i></button>
+                  <button className="admin-btn-danger" onClick={() => handleDelete(c.caseId)}><i className="fas fa-trash"></i></button>
                 </div>
               </div>
             );
@@ -906,7 +942,8 @@ function AppointmentsTab() {
     if (!roomNum.trim()) { alert('Please enter a Room Number (e.g. Room 104)'); return; }
     setSubmitting(true);
     try {
-      const res = await API(`/api/appointments/${selectedAppt.id}/approve`, {
+      const apptId = selectedAppt.id || selectedAppt.appointmentId || selectedAppt._id;
+      const res = await API(`/api/appointments/${apptId}/approve`, {
         method: 'PUT',
         body: JSON.stringify({
           department: dept,
@@ -917,12 +954,16 @@ function AppointmentsTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setToast(`Appointment approved! Assigned to ${data.appointment.assignedDepartment}, ${data.appointment.assignedRoom} · Queue Token: ${data.queueToken}`);
+        setToast(`Appointment approved! Assigned to ${data.appointment?.assignedDepartment || dept}, ${data.appointment?.assignedRoom || roomNum} · Queue Token: ${data.queueToken}`);
         setTimeout(() => setToast(''), 5000);
         setActionType(null);
         setSelectedAppt(null);
         load(filter);
+      } else {
+        alert(data.message || 'Failed to approve appointment.');
       }
+    } catch (err) {
+      alert('Error approving appointment: ' + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -933,7 +974,8 @@ function AppointmentsTab() {
     if (!rejectReason.trim()) { alert('Please enter a rejection reason.'); return; }
     setSubmitting(true);
     try {
-      const res = await API(`/api/appointments/${selectedAppt.id}/reject`, {
+      const apptId = selectedAppt.id || selectedAppt.appointmentId || selectedAppt._id;
+      const res = await API(`/api/appointments/${apptId}/reject`, {
         method: 'PUT',
         body: JSON.stringify({
           rejectionReason: rejectReason,
@@ -946,7 +988,11 @@ function AppointmentsTab() {
         setActionType(null);
         setSelectedAppt(null);
         load(filter);
+      } else {
+        alert(data.message || 'Failed to reject appointment.');
       }
+    } catch (err) {
+      alert('Error rejecting appointment: ' + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -957,8 +1003,9 @@ function AppointmentsTab() {
     if (!docListText.trim()) { alert('Please specify the required documents.'); return; }
     setSubmitting(true);
     try {
+      const apptId = selectedAppt.id || selectedAppt.appointmentId || selectedAppt._id;
       const docList = docListText.split(',').map((s) => s.trim()).filter(Boolean);
-      const res = await API(`/api/appointments/${selectedAppt.id}/request-docs`, {
+      const res = await API(`/api/appointments/${apptId}/request-docs`, {
         method: 'PUT',
         body: JSON.stringify({
           requestedDocuments: docList,
@@ -972,7 +1019,11 @@ function AppointmentsTab() {
         setActionType(null);
         setSelectedAppt(null);
         load(filter);
+      } else {
+        alert(data.message || 'Failed to request documents.');
       }
+    } catch (err) {
+      alert('Error requesting documents: ' + err.message);
     } finally {
       setSubmitting(false);
     }

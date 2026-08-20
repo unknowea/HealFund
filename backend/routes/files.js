@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { protect } from '../middleware/auth.js';
+import User from '../models/User.js';
+import PatientDocument from '../models/PatientDocument.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,21 +37,43 @@ const upload = multer({
 });
 
 // POST /api/files/upload — protected
-router.post('/upload', protect, upload.single('medicalFile'), (req, res) => {
+router.post('/upload', protect, upload.single('medicalFile'), async (req, res) => {
   if (!req.file)
     return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-  res.json({
-    success: true,
-    message: 'File uploaded successfully! Waiting for Zewditu Hospital to verify.',
-    file: {
+  try {
+    // Look up the uploading user to get their name and patientId
+    const user = await User.findById(req.user.id).select('name patientId');
+    const ext = path.extname(req.file.originalname).replace('.', '').toLowerCase();
+
+    // Save a PatientDocument record so the admin can see and download this file
+    await PatientDocument.create({
+      patientId: user?.patientId || req.user.id,
+      patientName: user?.name || req.user.email,
       originalName: req.file.originalname,
       filename: req.file.filename,
       size: (req.file.size / (1024 * 1024)).toFixed(2) + ' MB',
-      uploadDate: new Date().toLocaleDateString('en-GB'),
+      type: ext,
+      category: 'General Medical Document',
       status: 'Pending Verification',
-    },
-  });
+    });
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully! Waiting for Zewditu Hospital to verify.',
+      file: {
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        size: (req.file.size / (1024 * 1024)).toFixed(2) + ' MB',
+        uploadDate: new Date().toLocaleDateString('en-GB'),
+        status: 'Pending Verification',
+      },
+    });
+  } catch (err) {
+    // Clean up the uploaded file if DB save failed
+    fs.unlink(path.join(uploadDir, req.file.filename), () => {});
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export default router;
