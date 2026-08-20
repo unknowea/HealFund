@@ -87,7 +87,7 @@ export default function FinancialAssistancePortal({ currentLang }) {
               <i className="fas fa-check-circle"></i> Stage 1 — Medical Record Verification
             </h4>
             <p style={{ fontSize: '13px', color: '#5e6f82', margin: 0 }}>
-              Primary health center (Lideta HC) submits verified medical records to Zewditu Memorial Hospital. Prevents unverified medical claims.
+              The clinical department at Zewditu Memorial Hospital inspects and verifies patient medical records.
             </p>
           </div>
           <div style={{ background: '#ffffff', padding: '16px', borderRadius: '12px', border: '1px solid #d0dbe8' }}>

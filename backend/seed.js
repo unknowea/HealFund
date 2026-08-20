@@ -39,42 +39,6 @@ const hospitals = await Hospital.insertMany([
     departments: ['Cardiology', 'General Surgery', 'Pediatrics', 'Oncology', 'Orthopedics', 'Internal Medicine', 'Neurology'],
     phone: '+251-11-551-8085',
   },
-  {
-    hospitalId: 'HOSP-002',
-    name: 'Lideta Health Center',
-    location: 'Addis Ababa, Lideta',
-    level: 'Primary Health Care Unit',
-    verified: true,
-    departments: ['Outpatient', 'Emergency Care', 'Maternal & Child Health', 'Basic Diagnostics'],
-    phone: '+251-11-553-2211',
-  },
-  {
-    hospitalId: 'HOSP-003',
-    name: "St. Paul's Hospital Millennium Medical College",
-    location: 'Addis Ababa, Gulele',
-    level: 'Specialized Referral Hospital',
-    verified: true,
-    departments: ['Nephrology', 'Cardiology', 'Surgery', 'Transplant Center'],
-    phone: '+251-11-275-0125',
-  },
-  {
-    hospitalId: 'HOSP-004',
-    name: 'Tikur Anbessa (Black Lion) Hospital',
-    location: 'Addis Ababa, Lideta',
-    level: 'National Specialized Hospital',
-    verified: true,
-    departments: ['Oncology', 'Radiotherapy', 'Pediatric Surgery', 'Trauma'],
-    phone: '+251-11-551-1211',
-  },
-  {
-    hospitalId: 'HOSP-005',
-    name: 'Yekatit 12 Hospital Medical College',
-    location: 'Addis Ababa, Arada',
-    level: 'General & Referral Hospital',
-    verified: true,
-    departments: ['Burn Unit', 'Plastic Surgery', 'General Medicine'],
-    phone: '+251-11-123-4567',
-  },
 ]);
 console.log(`✅ Seeded ${hospitals.length} hospitals`);
 
@@ -94,11 +58,11 @@ const users = await User.insertMany([
   },
   {
     name: 'Dr. Tadesse Bekele',
-    email: 'staff@lidetahc.gov.et',
+    email: 'staff@zewditu.gov.et',
     password: await bcrypt.hash('hospital123', 10),
     role: 'hospital_officer',
-    hospitalId: 'HOSP-002',
-    hospitalName: 'Lideta Health Center',
+    hospitalId: 'HOSP-001',
+    hospitalName: 'Zewditu Memorial Hospital',
   },
   {
     name: 'Dr. M. Worku',
@@ -176,7 +140,7 @@ const financialCases = await FinancialCase.insertMany([
     diagnosis: 'Severe Hypertensive Heart Failure & Valve Procedure',
     verifyingHospital: 'Zewditu Memorial Hospital',
     verifiedByDoctor: 'Dr. M. Worku (Head of Cardiology)',
-    verificationStage1: 'Medical Records Verified (Lideta HC → Zewditu)',
+    verificationStage1: 'Medical Records Verified at Zewditu Memorial Hospital',
     verificationStage2: 'Financial Need Verified by Zewditu Social Work Unit',
     targetAmount: 85000,
     raisedAmount: 0,
@@ -194,12 +158,12 @@ const financialCases = await FinancialCase.insertMany([
     diagnosis: 'Pediatric Ventricular Septal Defect Repair',
     verifyingHospital: 'Zewditu Memorial Hospital',
     verifiedByDoctor: 'Dr. Abera Tekle',
-    verificationStage1: 'Medical Records Verified (Adama Hospital → Zewditu)',
+    verificationStage1: 'Medical Records Verified at Zewditu Memorial Hospital',
     verificationStage2: 'Financial Assistance Approved',
     targetAmount: 120000,
     raisedAmount: 0,
     currency: 'ETB',
-    description: 'Tigist is an 8-year-old student referred from Adama for congenital heart defect corrective surgery.',
+    description: 'Tigist is an 8-year-old student referred for congenital heart defect corrective surgery.',
     status: 'Active',
     donorsCount: 0,
   },
@@ -213,7 +177,7 @@ const messages = await Message.insertMany([
     name: 'Selamawit Desta',
     contact: 'selam.desta@gmail.com',
     category: 'Medical File Verification',
-    message: 'Hello, I uploaded my medical lab results yesterday from Lideta clinic. Could you please check the verification status?',
+    message: 'Hello, I uploaded my medical lab results yesterday for Zewditu Memorial Hospital. Could you please check the verification status?',
     status: 'Unread',
   },
   {
@@ -221,7 +185,7 @@ const messages = await Message.insertMany([
     name: 'Kassahun Belay',
     contact: 'kassahun.b@ethionet.et',
     category: 'Medical File Verification',
-    message: 'Inquiring about medical file transfer timeline from Tikur Anbessa to Zewditu Memorial Hospital Cardiology clinic.',
+    message: 'Inquiring about medical file review timeline at Zewditu Memorial Hospital Cardiology clinic.',
     status: 'Read',
   },
   {
@@ -229,7 +193,7 @@ const messages = await Message.insertMany([
     name: 'Genet Wolde',
     contact: 'genet.w@yahoo.com',
     category: 'Community Agent',
-    message: 'My elderly mother cannot travel easily to the hospital. We would appreciate a community health field agent visit in Lideta area.',
+    message: 'My elderly mother cannot travel easily to the hospital. We would appreciate a community health field agent visit in Kirkos / Lideta area.',
     status: 'Unread',
   },
 ]);
@@ -238,7 +202,7 @@ console.log(`✅ Seeded ${messages.length} messages`);
 console.log('\n🎉 Database seeded successfully!');
 console.log('\nDemo credentials:');
 console.log('  Patient  → you@example.com / password123');
-console.log('  Staff    → staff@lidetahc.gov.et / hospital123');
+console.log('  Staff    → staff@zewditu.gov.et / hospital123');
 console.log('  Admin    → admin@zewditu.gov.et / admin123');
 
 await mongoose.disconnect();

@@ -112,14 +112,15 @@ export default function QueuePortal({ currentLang, currentUser }) {
               </div>
 
               {[
-                ['Clinic / Room', activeTicket.department],
+                ['Clinic / Department', activeTicket.department],
+                ['Room Number', activeTicket.roomNumber || 'Room 101'],
                 ['Assigned Doctor', activeTicket.assignedDoctor],
-                ['Scheduled Time', activeTicket.estimatedTime ? new Date(activeTicket.estimatedTime).toLocaleString() : '—'],
-                ['Priority', activeTicket.urgency],
+                ['Consultation Slot', activeTicket.estimatedTime ? `${new Date(activeTicket.estimatedTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} (~10 min slot)` : '—'],
+                ['Priority', activeTicket.urgency || 'Routine'],
               ].map(([label, val]) => (
                 <div key={label} className="info-row">
                   <span className="label">{label}:</span>
-                  <span className="value" style={label === 'Priority' ? { color: activeTicket.urgency === 'High' ? '#da121a' : '#078930' } : {}}>{val}</span>
+                  <span className="value" style={label === 'Priority' ? { color: activeTicket.urgency === 'Emergency' || activeTicket.urgency === 'High' ? '#da121a' : '#078930', fontWeight: 700 } : label === 'Room Number' ? { color: '#078930', fontWeight: 700 } : {}}>{val}</span>
                 </div>
               ))}
 

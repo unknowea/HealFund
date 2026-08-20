@@ -431,7 +431,17 @@ router.delete('/queue/:token', protect, requireRole('admin', 'hospital_officer')
   try {
     const item = await Queue.findOneAndDelete({ token: req.params.token });
     if (!item) return res.status(404).json({ success: false, message: 'Queue token not found' });
-    res.json({ success: true });
+
+    // Sync appointment cancellation
+    if (item.appointmentId || item.token) {
+      await Appointment.findOneAndUpdate(
+        { $or: [{ queueToken: item.token }, { id: item.appointmentId }] },
+        { status: 'Cancelled', queueToken: '', adminNote: 'Removed from queue by admin.' }
+      );
+    }
+
+    const remainingQueue = await Queue.find().sort({ estimatedTime: 1 });
+    res.json({ success: true, queue: remainingQueue });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

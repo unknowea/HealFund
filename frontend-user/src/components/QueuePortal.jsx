@@ -70,12 +70,13 @@ export default function QueuePortal({ currentLang, currentUser }) {
                 <h1 style={{ fontSize: '48px', color: '#078930', margin: '4px 0' }}>{activeTicket.token}</h1>
                 <h3 style={{ color: '#0f3b5e', fontSize: '20px' }}>{activeTicket.patientName} ({activeTicket.patientId})</h3>
               </div>
-              <div className="info-row"><span className="label"><i className="fas fa-hospital-alt"></i> Clinic / Room:</span><span className="value">{activeTicket.department}</span></div>
+              <div className="info-row"><span className="label"><i className="fas fa-hospital-alt"></i> Clinic / Department:</span><span className="value"><strong>{activeTicket.department}</strong></span></div>
+              <div className="info-row"><span className="label"><i className="fas fa-door-open"></i> Assigned Room:</span><span className="value"><strong style={{ color: '#078930' }}>{activeTicket.roomNumber || 'Room 101'}</strong></span></div>
               <div className="info-row"><span className="label"><i className="fas fa-user-md"></i> Assigned Doctor:</span><span className="value"><strong>{activeTicket.assignedDoctor}</strong></span></div>
-              <div className="info-row"><span className="label"><i className="fas fa-clock"></i> Scheduled:</span><span className="value">{activeTicket.estimatedTime ? new Date(activeTicket.estimatedTime).toLocaleString() : '—'}</span></div>
+              <div className="info-row"><span className="label"><i className="fas fa-clock"></i> Consultation Slot:</span><span className="value">{activeTicket.estimatedTime ? new Date(activeTicket.estimatedTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'} <small style={{ color: '#078930' }}>(~10 min)</small></span></div>
               <div className="info-row">
                 <span className="label"><i className="fas fa-exclamation-circle"></i> Priority:</span>
-                <span className="value" style={{ color: activeTicket.urgency === 'High' ? '#da121a' : '#078930' }}>{activeTicket.urgency}</span>
+                <span className="value" style={{ color: activeTicket.urgency === 'Emergency' || activeTicket.urgency === 'High' ? '#da121a' : '#078930', fontWeight: 700 }}>{activeTicket.urgency || 'Routine'}</span>
               </div>
               <div style={{ marginTop: '20px', background: '#fafcff', padding: '16px', borderRadius: '12px', border: '1px solid #e2eaf3' }}>
                 <h5 style={{ color: '#0f3b5e', marginBottom: '8px' }}><i className="fas fa-file-invoice"></i> Required Documents:</h5>

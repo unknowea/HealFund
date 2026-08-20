@@ -11,7 +11,6 @@ export default function PatientPortal({
   const setActiveTab = propSetActiveTab || setInternalTab;
 
   const [selectedSlot, setSelectedSlot] = useState('Today 4:30 PM');
-  const [customTime, setCustomTime] = useState('');
   const [appointmentsList, setAppointmentsList] = useState([]);
   const [apptLoading, setApptLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -20,6 +19,24 @@ export default function PatientPortal({
   const [modalMessage, setModalMessage] = useState(null);
   const canvasRef = useRef(null);
   const [homeStats, setHomeStats] = useState({ patients: '…', verification: '…', centers: '…' });
+
+  // Appointment booking form state
+  const [isForSelf, setIsForSelf] = useState(true);
+  const [bookPatientName, setBookPatientName] = useState('');
+  const [bookPatientAge, setBookPatientAge] = useState('');
+  const [bookPatientGender, setBookPatientGender] = useState('');
+  const [bookRelationship, setBookRelationship] = useState('Child');
+  const [bookUrgency, setBookUrgency] = useState('Medium');
+  const [bookDisease, setBookDisease] = useState('');
+  const [bookDepartment, setBookDepartment] = useState('General Medicine');
+  const [bookPhone, setBookPhone] = useState('');
+  const [bookFile, setBookFile] = useState(null);
+  const [bookSubmitting, setBookSubmitting] = useState(false);
+
+  // Additional document upload state
+  const [activeUploadDocAptId, setActiveUploadDocAptId] = useState(null);
+  const [additionalDocFile, setAdditionalDocFile] = useState(null);
+  const [additionalDocUploading, setAdditionalDocUploading] = useState(false);
 
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -158,19 +175,75 @@ export default function PatientPortal({
     }
   };
 
-  const bookAppointment = async () => {
-    const timeStr = customTime || new Date(Date.now() + 86400000).toISOString();
+  const handleBookAppointment = async (e) => {
+    e.preventDefault();
+    if (!bookDisease.trim()) {
+      setModalMessage(isAm ? 'እባክዎ የበሽታዎን ወይም የቀጠሮዎን ዝርዝር ያስገቡ።' : 'Please describe your medical condition / symptoms.');
+      return;
+    }
+    setBookSubmitting(true);
     try {
-      const data = await createAppointment({
-        patientId: defaultUser.patientId,
-        patientName: defaultUser.name,
-        department: 'General',
-        datetime: timeStr,
-      });
-      setAppointmentsList([data.appointment, ...appointmentsList]);
-      setModalMessage(`Appointment confirmed! Queue token: ${data.appointment.queueToken}`);
+      const formData = new FormData();
+      formData.append('patientId', defaultUser.patientId || '');
+      formData.append('bookedByUserId', defaultUser.email || defaultUser.patientId || '');
+      formData.append('isForSelf', isForSelf);
+      formData.append('patientName', isForSelf ? (defaultUser.name || 'Patient') : (bookPatientName || 'Dependent Patient'));
+      formData.append('patientAge', isForSelf ? (defaultUser.age || '') : bookPatientAge);
+      formData.append('patientGender', isForSelf ? (defaultUser.gender || '') : bookPatientGender);
+      formData.append('relationship', isForSelf ? 'Self' : (bookRelationship || 'Dependent'));
+      formData.append('urgency', bookUrgency);
+      formData.append('disease', bookDisease);
+      formData.append('preferredDepartment', bookDepartment);
+      formData.append('patientPhone', bookPhone);
+      if (bookFile) {
+        formData.append('supportingFile', bookFile);
+      }
+
+      const res = await createAppointment(formData);
+      if (res.success) {
+        setAppointmentsList([res.appointment, ...appointmentsList]);
+        setBookDisease('');
+        setBookFile(null);
+        setBookPhone('');
+        if (!isForSelf) {
+          setBookPatientName('');
+          setBookPatientAge('');
+          setBookPatientGender('');
+        }
+        setModalMessage(
+          isAm
+            ? 'የቀጠሮ ጥያቄዎ በተሳካ ሁኔታ ተልኳል! ሆስፒታሉ የህመምዎን አጣዳፊነት ገምግሞ ክፍል እና የ10 ደቂቃ ተራ ቁጥር ይመድብልዎታል።'
+            : 'Appointment request submitted successfully! Hospital administration will triage your request, assign your Department and Room Number, and allocate your ~10-minute queue slot.'
+        );
+      }
     } catch (err) {
-      setModalMessage('Appointment booked! Check queue for your token.');
+      setModalMessage(isAm ? `ስህተት ተከስቷል: ${err.message}` : `Failed to submit appointment request: ${err.message}`);
+    } finally {
+      setBookSubmitting(false);
+    }
+  };
+
+  const handleUploadAdditionalDoc = async (appointmentId) => {
+    if (!additionalDocFile) return;
+    setAdditionalDocUploading(true);
+    try {
+      const res = await uploadAdditionalAppointmentDocs(appointmentId, additionalDocFile);
+      if (res.success) {
+        setAppointmentsList((prev) =>
+          prev.map((a) => (a.id === appointmentId || a._id === appointmentId ? res.appointment : a))
+        );
+        setActiveUploadDocAptId(null);
+        setAdditionalDocFile(null);
+        setModalMessage(
+          isAm
+            ? 'ተጨማሪ ሰነድ በተሳካ ሁኔታ ተልኳል! የሆስፒታሉ አስተዳዳሪ ተመልክቶ ያጸድቀዋል።'
+            : 'Additional document submitted successfully! Hospital administration will review your updated file.'
+        );
+      }
+    } catch (err) {
+      setModalMessage(`Failed to upload document: ${err.message}`);
+    } finally {
+      setAdditionalDocUploading(false);
     }
   };
 
@@ -202,12 +275,12 @@ export default function PatientPortal({
           </p>
           <div className="features-grid">
             <div className="feature-card"><i className="fas fa-file-medical-alt"></i><h4>{isAm ? 'የተረጋገጡ ሰነዶች' : 'Verified Medical Records'}</h4><p>{isAm ? 'ሰነዶችዎን ያረጋግጡ።' : 'Securely verify your health documents.'}</p></div>
-            <div className="feature-card"><i className="fas fa-calendar-check"></i><h4>{isAm ? 'ቀጥታ ቀጠሮ' : 'Direct Booking'}</h4><p>{isAm ? 'ቀጥታ ቀጠሮ ይያዙ።' : 'Book appointments directly with partner hospitals.'}</p></div>
+            <div className="feature-card"><i className="fas fa-calendar-check"></i><h4>{isAm ? 'ቀጥታ ቀጠሮ' : 'Direct Booking'}</h4><p>{isAm ? 'በዘውዲቱ ሆስፒታል ቀጥታ ቀጠሮ ይያዙ።' : 'Book appointments directly at Zewditu Memorial Hospital.'}</p></div>
             <div className="feature-card"><i className="fas fa-mobile-alt"></i><h4>{isAm ? 'ኦፍላይን መዳረሻ' : 'Offline & Phone Access'}</h4><p>{isAm ? '*677# ወይም የድምፅ ጥሪ ይጠቀሙ።' : 'Use USSD (*677#) or call our support line.'}</p></div>
           </div>
           <div className="stats-row">
             <div className="stat-item"><h2>{homeStats.patients}</h2><p>{isAm ? 'ተመዝጋቢ ታካሚዎች' : 'Patients Registered'}</p></div>
-            <div className="stat-item"><h2>{homeStats.centers}</h2><p>{isAm ? 'አጋር ጤና ተቋማት' : 'Partner Health Centers'}</p></div>
+            <div className="stat-item"><h2>{homeStats.centers}</h2><p>{isAm ? 'የሆስፒታል ማዕከል' : 'Hospital Facility'}</p></div>
             <div className="stat-item"><h2>{homeStats.cases || '…'}</h2><p>{isAm ? 'ፋይናንሺያል ጉዳዮች' : 'Active Financial Cases'}</p></div>
           </div>
         </div>
@@ -279,43 +352,458 @@ export default function PatientPortal({
 
       {/* APPOINTMENTS */}
       {activeTab === 'appointments' && (
-        <div className="card">
-          {/* Item 2: Back button */}
+        <div>
+          {/* Back button */}
           <button className="btn btn-outline" onClick={() => setActiveTab('dashboard')} style={{ marginBottom: '16px', fontSize: '13px' }}>
             <i className="fas fa-arrow-left"></i> {isAm ? 'ወደ ዳሽቦርድ ተመለስ' : 'Back to Dashboard'}
           </button>
-          <div className="card-header">
-            <h3><i className="fas fa-calendar-alt"></i> {isAm ? 'ቀጠሮዎችዎ' : 'Your Appointments'}</h3>
-            <span className="badge" style={{ background: '#078930', color: '#fff', padding: '4px 14px' }}>{appointmentsList.length} upcoming</span>
-          </div>
-          {apptLoading ? <p style={{ color: '#7a8a9e' }}>Loading...</p> : (
-            <div style={{ background: '#f8faff', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-              {appointmentsList.length === 0
-                ? <p style={{ color: '#7a8a9e', fontSize: '14px' }}>{isAm ? 'ቀጠሮ የለም' : 'No appointments yet.'}</p>
-                : appointmentsList.map((apt) => (
-                  <div key={apt._id || apt.appointmentId} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #eef2f7' }}>
-                    <p>
-                      <strong>📅 {new Date(apt.datetime).toLocaleString()}</strong> — {apt.hospitalName}, {apt.doctorName}{' '}
-                      {apt.queueToken && <span style={{ color: '#078930', fontWeight: 700 }}>Token: {apt.queueToken}</span>}{' '}
-                      <span className={`status-badge ${apt.status === 'Confirmed' ? 'status-verified' : 'status-pending'}`} style={{ fontSize: '12px' }}>{apt.status}</span>
-                    </p>
-                  </div>
-                ))}
-            </div>
-          )}
 
-          <h4 style={{ marginBottom: '12px', color: '#0f3b5e' }}><i className="fas fa-calendar-plus"></i> {isAm ? 'አዲስ ቀጠሮ ይያዙ' : 'Book a New Appointment'}</h4>
-          <div className="appointment-slots">
-            {['Today 2:00 PM', 'Today 4:30 PM', 'Tomorrow 9:00 AM', 'Tomorrow 11:30 AM', 'Thu 10:00 AM'].map((slot) => (
-              <span key={slot} className={`slot ${selectedSlot === slot ? 'selected' : ''}`} onClick={() => setSelectedSlot(slot)}>{slot}</span>
-            ))}
+          {/* List of Existing Appointments */}
+          <div className="card" style={{ marginBottom: '24px' }}>
+            <div className="card-header">
+              <h3><i className="fas fa-calendar-alt"></i> {isAm ? 'የእርስዎ የቀጠሮ ጥያቄዎች እና መርሃግብር' : 'Your Appointment Requests & Schedule'}</h3>
+              <span className="badge" style={{ background: '#078930', color: '#fff', padding: '4px 14px' }}>
+                {appointmentsList.length} {isAm ? 'ቀጠሮዎች' : 'Total'}
+              </span>
+            </div>
+
+            {apptLoading ? (
+              <p style={{ color: '#7a8a9e', textAlign: 'center', padding: '24px' }}><i className="fas fa-spinner fa-spin"></i> Loading appointments...</p>
+            ) : appointmentsList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: '#7a8a9e' }}>
+                <i className="fas fa-calendar-times" style={{ fontSize: '36px', marginBottom: '10px', color: '#b0bec5' }}></i>
+                <p>{isAm ? 'እስካሁን ምንም የቀጠሮ ጥያቄ አልቀረበም። ከታች አዲስ ቀጠሮ ይጠይቁ።' : 'No appointment requests yet. Fill out the form below to request an appointment.'}</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {appointmentsList.map((apt) => {
+                  const urgencyColor =
+                    apt.urgency === 'Emergency' ? '#da121a' :
+                    apt.urgency === 'High' ? '#e05000' :
+                    apt.urgency === 'Medium' ? '#e07b00' : '#078930';
+
+                  const isApproved = apt.status === 'Approved' || apt.status === 'Confirmed';
+                  const isDocsRequired = apt.status === 'Additional Documents Required';
+                  const isPending = apt.status === 'Pending Review' || apt.status === 'Pending';
+                  const isRejected = apt.status === 'Rejected';
+                  const isCancelled = apt.status === 'Cancelled';
+
+                  return (
+                    <div
+                      key={apt.id || apt._id}
+                      style={{
+                        background: '#ffffff',
+                        borderRadius: '14px',
+                        padding: '18px',
+                        border: `1.5px solid ${isApproved ? '#86efac' : isDocsRequired ? '#fdba74' : (isRejected || isCancelled) ? '#fca5a5' : '#e2e8f0'}`,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                      }}
+                    >
+                      {/* Top row: Patient Info & Status Badge */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <h4 style={{ margin: 0, color: '#0f3b5e', fontSize: '17px', fontWeight: 700 }}>
+                              <i className="fas fa-user-circle" style={{ color: '#078930' }}></i> {apt.patientName}
+                            </h4>
+                            {apt.relationship && apt.relationship !== 'Self' && (
+                              <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+                                {apt.relationship}
+                              </span>
+                            )}
+                            <span style={{ background: urgencyColor, color: '#fff', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+                              <i className="fas fa-heartbeat"></i> {apt.urgency} Urgency
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            ID: <strong>{apt.patientId}</strong> · Request ID: {apt.id} · Requested: {apt.requestedAt ? new Date(apt.requestedAt).toLocaleDateString() : 'Recent'}
+                          </div>
+                        </div>
+
+                        <div>
+                          {isApproved && (
+                            <span className="status-badge status-verified" style={{ fontSize: '13px', padding: '6px 14px' }}>
+                              <i className="fas fa-check-circle"></i> {isAm ? 'ጸድቋል' : 'Approved & Scheduled'}
+                            </span>
+                          )}
+                          {isDocsRequired && (
+                            <span className="status-badge" style={{ background: '#fff7ed', color: '#c2410c', border: '1.5px solid #f97316', fontSize: '13px', padding: '6px 14px' }}>
+                              <i className="fas fa-exclamation-triangle"></i> {isAm ? 'ተጨማሪ ሰነዶች ያስፈልጋሉ' : 'Additional Docs Required'}
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="status-badge" style={{ background: '#fefce8', color: '#a16207', border: '1.5px solid #eab308', fontSize: '13px', padding: '6px 14px' }}>
+                              <i className="fas fa-clock"></i> {isAm ? 'በሆስፒታሉ ምርመራ ላይ' : 'Under Admin Triage'}
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="status-badge status-rejected" style={{ fontSize: '13px', padding: '6px 14px' }}>
+                              <i className="fas fa-times-circle"></i> {isAm ? 'ተቀባይነት አላገኘም' : 'Rejected'}
+                            </span>
+                          )}
+                          {isCancelled && (
+                            <span className="status-badge status-rejected" style={{ fontSize: '13px', padding: '6px 14px', background: '#6b7280', borderColor: '#6b7280' }}>
+                              <i className="fas fa-ban"></i> {isAm ? 'ቀጠሮ ተሰርዟል' : 'Cancelled by Admin'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Disease and Details */}
+                      <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '10px', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '13px', color: '#334155' }}>
+                          <strong><i className="fas fa-notes-medical" style={{ color: '#078930' }}></i> {isAm ? 'የህመም ዝርዝር' : 'Condition / Symptoms'}:</strong> {apt.disease}
+                        </div>
+                        {apt.preferredDepartment && (
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            {isAm ? 'የተመረጠ ክፍል' : 'Department of Interest'}: <strong>{apt.preferredDepartment}</strong>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Case 1: APPROVED - Show Queue Token, Room, Department, and Estimated 10-min Time */}
+                      {isApproved && (
+                        <div style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', border: '1.5px solid #86efac', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', alignItems: 'center' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#166534', fontWeight: 700 }}>Queue Token</span>
+                              <div style={{ fontSize: '24px', fontWeight: 800, color: '#15803d' }}>{apt.queueToken || 'C-023'}</div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#166534', fontWeight: 700 }}>Department</span>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f3b5e' }}>{apt.assignedDepartment || 'General Clinic'}</div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#166534', fontWeight: 700 }}>Room Number</span>
+                              <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f3b5e' }}>
+                                <i className="fas fa-door-open" style={{ color: '#078930' }}></i> {apt.assignedRoom || 'Room 102'}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#166534', fontWeight: 700 }}>Consultation Time</span>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f3b5e' }}>
+                                📅 {apt.estimatedTime ? new Date(apt.estimatedTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Scheduled'}
+                                <span style={{ display: 'block', fontSize: '11px', color: '#166534', fontWeight: 500 }}>(~10 min slot)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Case 2: ADDITIONAL DOCUMENTS REQUIRED */}
+                      {isDocsRequired && (
+                        <div style={{ background: '#fff7ed', border: '1.5px solid #fdba74', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
+                          <h5 style={{ color: '#9a3412', margin: '0 0 6px 0', fontSize: '14px' }}>
+                            <i className="fas fa-file-upload"></i> {isAm ? 'ሆስፒታሉ የጠየቃቸው ተጨማሪ ሰነዶች' : 'Hospital Admin Requested Additional Documents'}:
+                          </h5>
+                          {apt.requestedDocuments && apt.requestedDocuments.length > 0 && (
+                            <ul style={{ margin: '4px 0 10px 20px', fontSize: '13px', color: '#7c2d12' }}>
+                              {apt.requestedDocuments.map((doc, idx) => (
+                                <li key={idx}><strong>{doc}</strong></li>
+                              ))}
+                            </ul>
+                          )}
+                          {apt.adminNote && (
+                            <p style={{ margin: '4px 0 10px 0', fontSize: '12px', color: '#9a3412', fontStyle: 'italic' }}>
+                              "{apt.adminNote}"
+                            </p>
+                          )}
+
+                          {/* Upload Box for Requested Docs */}
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
+                            <input
+                              type="file"
+                              id={`additionalDocInput-${apt.id}`}
+                              style={{ fontSize: '13px' }}
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setAdditionalDocFile(e.target.files[0])}
+                            />
+                            <button
+                              className="btn btn-primary"
+                              style={{ fontSize: '13px', padding: '6px 16px' }}
+                              disabled={!additionalDocFile || additionalDocUploading}
+                              onClick={() => handleUploadAdditionalDoc(apt.id)}
+                            >
+                              {additionalDocUploading ? <><i className="fas fa-spinner fa-spin"></i> Submitting...</> : <><i className="fas fa-upload"></i> Submit Document</>}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Case 3: PENDING REVIEW */}
+                      {isPending && (
+                        <div style={{ background: '#fefce8', border: '1px solid #fef08a', borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#854d0e', marginBottom: '8px' }}>
+                          <i className="fas fa-info-circle"></i> {isAm ? 'የቀጠሮ ጥያቄዎ በአስተዳዳሪው እየተገመገመ ነው። ህመምዎ ተመርምሮ ክፍል እና የ10 ደቂቃ ተራ ቁጥር በቅርቡ ይመደብልዎታል።' : 'Your request is in queue for administrative review. Department, Room Number, and 10-minute service time slot will be assigned upon approval.'}
+                        </div>
+                      )}
+
+                      {/* Case 4: REJECTED */}
+                      {isRejected && (
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#991b1b', marginBottom: '8px' }}>
+                          <i className="fas fa-times-circle"></i> <strong>{isAm ? 'ውድቅ የተደረገበት ምክንያት' : 'Rejection Reason'}:</strong> {apt.rejectionReason || apt.adminNote || 'Criteria not met.'}
+                        </div>
+                      )}
+
+                      {/* Attached supporting files list */}
+                      {apt.supportingFiles && apt.supportingFiles.length > 0 && (
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                          <i className="fas fa-paperclip"></i> {isAm ? 'የተያያዙ ሰነዶች' : 'Attached Documents'}:{' '}
+                          {apt.supportingFiles.map((f, i) => (
+                            <span key={i} style={{ background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px', marginRight: '6px', display: 'inline-block' }}>
+                              {f.originalName} ({f.size || 'Attached'})
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="form-group" style={{ maxWidth: '350px', marginBottom: '20px' }}>
-            <label><i className="fas fa-clock"></i> {isAm ? 'የራስዎን ሰዓት ያስገቡ' : 'Custom time:'}</label>
-            <input type="datetime-local" value={customTime} onChange={(e) => setCustomTime(e.target.value)} />
-          </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={bookAppointment}><i className="fas fa-check"></i> {isAm ? 'ቀጠሮ አረጋግጥ' : 'Confirm Appointment'}</button>
+
+          {/* New Appointment Request Booking Form */}
+          <div className="card" style={{ borderTop: '5px solid #078930' }}>
+            <div className="card-header">
+              <h3><i className="fas fa-calendar-plus" style={{ color: '#078930' }}></i> {isAm ? 'አዲስ የቀጠሮ ጥያቄ ያስገቡ' : 'Request a New Hospital Appointment'}</h3>
+              <span className="badge" style={{ background: '#0f3b5e', color: '#fff', padding: '4px 12px' }}>
+                <i className="fas fa-stethoscope"></i> {isAm ? 'የ10 ደቂቃ ምርመራ' : '10-Min Consultations'}
+              </span>
+            </div>
+
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#166534' }}>
+              <i className="fas fa-info-circle"></i> <strong>{isAm ? 'ማሳሰቢያ' : 'Appointment Scheduling Notice'}:</strong>{' '}
+              {isAm
+                ? 'በዘውዲቱ ሆስፒታል ህመምተኞች እንደ ህመማቸው አጣዳፊነትና ቅደም ተከተል ይስተናገዳሉ። ሰዓት መምረጥ አያስፈልግዎትም፤ አስተዳዳሪው ጥያቄዎን ገምግሞ ክፍል እና የ10 ደቂቃ ተራ ቁጥር ይመድብልዎታል።'
+                : 'To ensure efficient patient flow, appointments are scheduled by hospital administration in sequential ~10-minute intervals based on medical urgency. Please provide full patient information and supporting documents.'}
+            </div>
+
+            <form onSubmit={handleBookAppointment}>
+              {/* Step 1: Who is the appointment for? */}
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label style={{ fontWeight: 700, color: '#0f3b5e', marginBottom: '8px', display: 'block' }}>
+                  <i className="fas fa-user-friends" style={{ color: '#078930' }}></i> {isAm ? 'ቀጠሮው ለማን ነው?' : 'Who is this appointment for?'} *
+                </label>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: isForSelf ? '#e8f5e9' : '#f8fafc', padding: '10px 18px', borderRadius: '10px', border: `2px solid ${isForSelf ? '#078930' : '#e2e8f0'}`, fontWeight: 600 }}>
+                    <input
+                      type="radio"
+                      name="forWhom"
+                      checked={isForSelf}
+                      onChange={() => setIsForSelf(true)}
+                    />
+                    <span><i className="fas fa-user"></i> {isAm ? 'ለራሴ' : 'For Myself'} ({defaultUser.name || 'Account Holder'})</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: !isForSelf ? '#e8f5e9' : '#f8fafc', padding: '10px 18px', borderRadius: '10px', border: `2px solid ${!isForSelf ? '#078930' : '#e2e8f0'}`, fontWeight: 600 }}>
+                    <input
+                      type="radio"
+                      name="forWhom"
+                      checked={!isForSelf}
+                      onChange={() => setIsForSelf(false)}
+                    />
+                    <span><i className="fas fa-user-plus"></i> {isAm ? 'ለሌላ ሰው (ልጅ / ቤተሰብ)' : 'For Someone Else (Child, Parent, Dependent)'}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Patient Details (Editable if for someone else) */}
+              {!isForSelf && (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: '#0f3b5e' }}>
+                    <i className="fas fa-id-card"></i> {isAm ? 'የታካሚው መረጃ' : 'Dependent / Patient Details'}
+                  </h5>
+                  <div className="form-grid-2">
+                    <div className="form-group">
+                      <label>{isAm ? 'የታካሚው ሙሉ ስም' : "Patient's Full Name"} *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Fatima Kamara"
+                        value={bookPatientName}
+                        onChange={(e) => setBookPatientName(e.target.value)}
+                        required={!isForSelf}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>{isAm ? 'ዝምድና' : 'Relationship to You'} *</label>
+                      <select value={bookRelationship} onChange={(e) => setBookRelationship(e.target.value)}>
+                        <option value="Child">{isAm ? 'ልጅ' : 'Child / Son / Daughter'}</option>
+                        <option value="Parent">{isAm ? 'ወላጅ' : 'Parent (Mother / Father)'}</option>
+                        <option value="Spouse">{isAm ? 'የትዳር አጋር' : 'Spouse (Husband / Wife)'}</option>
+                        <option value="Sibling">{isAm ? 'ወንድም / እህት' : 'Sibling (Brother / Sister)'}</option>
+                        <option value="Relative">{isAm ? 'ዘመድ' : 'Relative'}</option>
+                        <option value="Other">{isAm ? 'ሌላ' : 'Other'}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2">
+                    <div className="form-group">
+                      <label>{isAm ? 'ዕድሜ' : 'Age'}</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 12"
+                        min="0"
+                        max="120"
+                        value={bookPatientAge}
+                        onChange={(e) => setBookPatientAge(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>{isAm ? 'ጾታ' : 'Gender'}</label>
+                      <select value={bookPatientGender} onChange={(e) => setBookPatientGender(e.target.value)}>
+                        <option value="">Choose</option>
+                        <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
+                        <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>
+                        <option value="Other">{isAm ? 'ሌላ' : 'Other'}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Urgency Level Selector */}
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label style={{ fontWeight: 700, color: '#0f3b5e', marginBottom: '8px', display: 'block' }}>
+                  <i className="fas fa-heartbeat" style={{ color: '#da121a' }}></i> {isAm ? 'የህመሙ አጣዳፊነት ደረጃ' : 'Medical Urgency Level'} *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                  {[
+                    { id: 'Routine', label: isAm ? 'መደበኛ' : 'Routine / Low', desc: 'General checkup', color: '#078930' },
+                    { id: 'Medium', label: isAm ? 'መካከለኛ' : 'Medium', desc: 'Mild symptoms', color: '#e07b00' },
+                    { id: 'High', label: isAm ? 'ከፍተኛ' : 'High Urgency', desc: 'Severe discomfort', color: '#e05000' },
+                    { id: 'Emergency', label: isAm ? 'አስቸኳይ' : 'Emergency', desc: 'Critical care', color: '#da121a' },
+                  ].map((u) => (
+                    <div
+                      key={u.id}
+                      onClick={() => setBookUrgency(u.id)}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: `2px solid ${bookUrgency === u.id ? u.color : '#e2e8f0'}`,
+                        background: bookUrgency === u.id ? `${u.color}15` : '#fff',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: '0.2s',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, color: u.color, fontSize: '14px' }}>{u.label}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{u.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Disease & Symptoms Description */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ fontWeight: 700, color: '#0f3b5e' }}>
+                  <i className="fas fa-stethoscope" style={{ color: '#078930' }}></i> {isAm ? 'የህመም ምልክቶች እና ዝርዝር' : 'Medical Condition & Symptoms Description'} *
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder={isAm ? 'እባክዎ ስለሚሰማዎት ህመም፣ ምልክቶች ወይም የዶክተር ማዘዣ በዝርዝር ይጻፉ...' : 'Describe your symptoms, illness duration, any known condition, or reason for appointment...'}
+                  value={bookDisease}
+                  onChange={(e) => setBookDisease(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d0dbe8' }}
+                ></textarea>
+              </div>
+
+              {/* Department Preference & Contact Phone */}
+              <div className="form-grid-2" style={{ marginBottom: '16px' }}>
+                <div className="form-group">
+                  <label>{isAm ? 'የሚፈለገው የህክምና ክፍል' : 'Department of Interest'}</label>
+                  <select value={bookDepartment} onChange={(e) => setBookDepartment(e.target.value)}>
+                    <option value="General Medicine">General Medicine / OPD</option>
+                    <option value="Cardiology">Cardiology (Heart & Cardiovascular)</option>
+                    <option value="General Surgery">General Surgery</option>
+                    <option value="Pediatrics">Pediatrics & Child Health</option>
+                    <option value="Orthopedics">Orthopedics & Traumatology (Bone/Joint)</option>
+                    <option value="Oncology">Oncology & Chemotherapy (Cancer/Tumor)</option>
+                    <option value="Internal Medicine">Internal Medicine (Chronic Illness & Diabetes)</option>
+                    <option value="Neurology">Neurology & Neurosurgery (Brain/Spine)</option>
+                    <option value="Nephrology">Nephrology & Dialysis (Kidney Disease/Renal)</option>
+                    <option value="Ophthalmology">Ophthalmology (Eye Specialty)</option>
+                    <option value="Obstetrics & Gynecology">Obstetrics & Gynecology (OB/GYN & Maternal)</option>
+                    <option value="Pulmonology">Pulmonology & Chest Diseases (Lung/Asthma/TB)</option>
+                    <option value="Gastroenterology">Gastroenterology & Hepatology (GI/Liver)</option>
+                    <option value="Urology">Urology (Urinary Tract & Prostate)</option>
+                    <option value="Dermatology">Dermatology (Skin Diseases)</option>
+                    <option value="ENT">ENT / Otorhinolaryngology (Ear, Nose, Throat)</option>
+                    <option value="Psychiatry">Psychiatry & Mental Health</option>
+                    <option value="Endocrinology">Endocrinology (Hormone & Thyroid)</option>
+                    <option value="Hematology">Hematology (Blood Disorders & Anemia)</option>
+                    <option value="Infectious Diseases">Infectious Diseases & Tropical Medicine</option>
+                    <option value="Emergency & Trauma">Emergency & Trauma Triage</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>{isAm ? 'ተጠሪ ስልክ ቁጥር' : 'Contact Phone Number'}</label>
+                  <input
+                    type="tel"
+                    placeholder="+251 9..."
+                    value={bookPhone}
+                    onChange={(e) => setBookPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Supporting File Attachment */}
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ fontWeight: 700, color: '#0f3b5e' }}>
+                  <i className="fas fa-paperclip" style={{ color: '#078930' }}></i> {isAm ? 'ደጋፊ የህክምና ሰነድ አያይዝ' : 'Attach Supporting Medical File for Admin Review'} ({isAm ? 'አማራጭ' : 'Optional'})
+                </label>
+                <div
+                  style={{
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => document.getElementById('bookFileInput').click()}
+                >
+                  <i className="fas fa-file-medical-alt" style={{ fontSize: '28px', color: '#078930', marginBottom: '6px' }}></i>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                    {bookFile ? `Selected: ${bookFile.name} (${(bookFile.size / (1024 * 1024)).toFixed(2)} MB)` : (isAm ? 'ሰነድ ለመምረጥ እዚህ ጠቅ ያድርጉ (PDF, JPG, PNG)' : 'Click to attach Lab Report, Referral, or ID (PDF, JPG, PNG up to 10MB)')}
+                  </p>
+                  <input
+                    type="file"
+                    id="bookFileInput"
+                    style={{ display: 'none' }}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setBookFile(e.target.files[0])}
+                  />
+                </div>
+                {bookFile && (
+                  <button
+                    type="button"
+                    onClick={() => setBookFile(null)}
+                    style={{ background: 'none', border: 'none', color: '#da121a', fontSize: '12px', cursor: 'pointer', marginTop: '6px' }}
+                  >
+                    <i className="fas fa-times"></i> {isAm ? 'ሰነዱን አስወግድ' : 'Remove attached file'}
+                  </button>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={bookSubmitting}
+                  style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700 }}
+                >
+                  {bookSubmitting ? (
+                    <><i className="fas fa-spinner fa-spin"></i> {isAm ? 'ጥያቄው እየተላከ ነው...' : 'Submitting Request for Admin Triage...'}</>
+                  ) : (
+                    <><i className="fas fa-paper-plane"></i> {isAm ? 'የቀጠሮ ጥያቄውን ላክ' : 'Submit Appointment Request for Admin Triage'}</>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

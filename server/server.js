@@ -86,47 +86,377 @@ app.get('/api/hospitals', (req, res) => {
   res.json({ success: true, hospitals: dataStore.hospitals });
 });
 
+// Helper to recalculate sequential 10-minute consultation times across the queue
+function recalculateQueueTimes() {
+  const baseDate = new Date();
+  baseDate.setHours(9, 0, 0, 0); // Base consultation start at 09:00 AM
+  // If it's already past 3 PM, schedule base for tomorrow 09:00 AM
+  if (new Date().getHours() >= 15) {
+    baseDate.setDate(baseDate.getDate() + 1);
+  }
+
+  dataStore.queue.forEach((q, idx) => {
+    q.orderIndex = idx;
+    q.durationMinutes = q.durationMinutes || 10;
+    const itemTime = new Date(baseDate.getTime() + idx * 10 * 60 * 1000);
+    q.estimatedTime = itemTime.toISOString();
+
+    // Sync estimated consultation time back to the appointment if linked
+    if (q.appointmentId) {
+      const appt = dataStore.appointments.find((a) => a.id === q.appointmentId);
+      if (appt) {
+        appt.estimatedTime = q.estimatedTime;
+      }
+    }
+  });
+}
+
 // --- APPOINTMENTS ---
 app.get('/api/appointments', (req, res) => {
-  const { patientId } = req.query;
+  const { patientId, status, search } = req.query;
   let list = dataStore.appointments;
   if (patientId) {
-    list = list.filter((a) => a.patientId === patientId);
+    list = list.filter((a) => a.patientId === patientId || a.bookedByUserId === patientId);
+  }
+  if (status && status !== 'All') {
+    list = list.filter((a) => a.status === status);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(
+      (a) =>
+        (a.patientName && a.patientName.toLowerCase().includes(q)) ||
+        (a.patientId && a.patientId.toLowerCase().includes(q)) ||
+        (a.disease && a.disease.toLowerCase().includes(q)) ||
+        (a.id && a.id.toLowerCase().includes(q))
+    );
   }
   res.json({ success: true, appointments: list });
 });
 
-app.post('/api/appointments', (req, res) => {
-  const { patientId, patientName, department, datetime } = req.body;
-  const tokenNum = String(dataStore.queue.length + 25).padStart(3, '0');
-  const queueToken = `C-${tokenNum}`;
+app.get('/api/appointments/:id', (req, res) => {
+  const appt = dataStore.appointments.find((a) => a.id === req.params.id);
+  if (!appt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+  res.json({ success: true, appointment: appt });
+});
 
+// Book appointment — patient does NOT choose time; submits patient details, urgency, disease, and optional files
+app.post('/api/appointments', upload.single('supportingFile'), (req, res) => {
+  const {
+    patientId,
+    bookedByUserId,
+    isForSelf,
+    patientName,
+    patientAge,
+    patientGender,
+    relationship,
+    urgency,
+    disease,
+    preferredDepartment,
+    patientPhone,
+  } = req.body;
+
+  const isSelf = isForSelf === true || isForSelf === 'true';
+  const effectivePatientId = patientId || `HF-${String(Math.floor(1000 + Math.random() * 9000))}`;
+  const effectivePatientName = patientName || (isSelf ? 'Patient' : 'Dependent Patient');
+
+  const supportingFiles = [];
+  if (req.file) {
+    const ext = req.file.originalname.split('.').pop().toLowerCase();
+    const docId = `DOC-${String(Date.now()).slice(-6)}`;
+    const fileObj = {
+      id: docId,
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      size: (req.file.size / (1024 * 1024)).toFixed(2) + ' MB',
+      type: ext,
+      uploadDate: new Date().toISOString(),
+    };
+    supportingFiles.push(fileObj);
+
+    // Also register in general patient documents store for admin visibility
+    dataStore.patientDocuments.unshift({
+      ...fileObj,
+      patientId: effectivePatientId,
+      patientName: effectivePatientName,
+      category: 'Appointment Supporting Document',
+      status: 'Pending Verification',
+      adminNote: '',
+    });
+  }
+
+  const apptId = `APT-${1000 + dataStore.appointments.length + 1}`;
   const newAppt = {
-    id: `APT-${1000 + dataStore.appointments.length + 1}`,
-    patientId: patientId || 'HF-0247',
-    patientName: patientName || 'Ahmed Kamara',
+    id: apptId,
+    patientId: effectivePatientId,
+    bookedByUserId: bookedByUserId || effectivePatientId,
+    isForSelf: isSelf,
+    patientName: effectivePatientName,
+    patientAge: patientAge ? parseInt(patientAge) : null,
+    patientGender: patientGender || 'Unspecified',
+    relationship: isSelf ? 'Self' : relationship || 'Other',
+    urgency: urgency || 'Medium',
+    disease: disease || 'General health consultation',
+    preferredDepartment: preferredDepartment || 'General Medicine',
+    patientPhone: patientPhone || '',
     hospitalName: 'Zewditu Memorial Hospital',
-    doctorName: 'Dr. M. Worku',
-    department: department || 'General Medicine',
-    datetime: datetime || new Date().toISOString(),
-    status: 'Confirmed',
-    queueToken,
+    assignedDoctor: '',
+    assignedDepartment: '',
+    assignedRoom: '',
+    status: 'Pending Review',
+    queueToken: '',
+    estimatedTime: '',
+    requestedAt: new Date().toISOString(),
+    reviewedAt: '',
+    supportingFiles,
+    requestedDocuments: [],
+    adminNote: '',
+    rejectionReason: '',
   };
 
   dataStore.appointments.unshift(newAppt);
-  dataStore.queue.unshift({
-    token: queueToken,
-    patientId: newAppt.patientId,
-    patientName: newAppt.patientName,
-    department: `${newAppt.department} Clinic`,
-    assignedDoctor: newAppt.doctorName,
-    estimatedTime: newAppt.datetime,
-    status: 'Scheduled',
-    urgency: 'Routine',
-    requiredDocuments: ['Patient ID / QR Card'],
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Appointment Requested',
+    detail: `${newAppt.id} submitted for ${newAppt.patientName} (${newAppt.urgency} urgency) — Awaiting admin triage`,
+    actor: effectivePatientName,
+    timestamp: new Date().toISOString(),
   });
 
-  res.json({ success: true, appointment: newAppt });
+  res.json({
+    success: true,
+    message: 'Appointment request submitted successfully. Waiting for admin review and queue allocation.',
+    appointment: newAppt,
+  });
+});
+
+// Admin approves appointment — assigns department, room number, doctor, queue token and 10-min slot
+app.put('/api/appointments/:id/approve', (req, res) => {
+  const { department, roomNumber, assignedDoctor, urgency } = req.body;
+  const appt = dataStore.appointments.find((a) => a.id === req.params.id);
+  if (!appt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+
+  const targetDept = department || appt.preferredDepartment || 'General Medicine';
+  const targetRoom = roomNumber || 'Room 101';
+  const targetDoctor = assignedDoctor || 'Dr. M. Worku';
+  const targetUrgency = urgency || appt.urgency || 'Medium';
+
+  // Generate or reuse queue token (First-come, first-served token sequence)
+  let queueToken = appt.queueToken;
+  if (!queueToken) {
+    const tokenNum = String(dataStore.queue.length + 25).padStart(3, '0');
+    queueToken = `C-${tokenNum}`;
+  }
+
+  // Create or update queue entry
+  let queueEntry = dataStore.queue.find((q) => q.token === queueToken || q.appointmentId === appt.id);
+  if (!queueEntry) {
+    queueEntry = {
+      token: queueToken,
+      appointmentId: appt.id,
+      patientId: appt.patientId,
+      patientName: appt.patientName,
+      department: targetDept.includes('Clinic') ? targetDept : `${targetDept} Clinic`,
+      roomNumber: targetRoom,
+      assignedDoctor: targetDoctor,
+      urgency: targetUrgency,
+      durationMinutes: 10,
+      status: 'Scheduled',
+      orderIndex: dataStore.queue.length,
+      estimatedTime: '',
+      requiredDocuments: appt.supportingFiles.map((f) => f.originalName).concat(['Patient ID / QR Card']),
+    };
+    dataStore.queue.push(queueEntry);
+  } else {
+    queueEntry.token = queueToken;
+    queueEntry.department = targetDept.includes('Clinic') ? targetDept : `${targetDept} Clinic`;
+    queueEntry.roomNumber = targetRoom;
+    queueEntry.assignedDoctor = targetDoctor;
+    queueEntry.urgency = targetUrgency;
+    queueEntry.status = 'Scheduled';
+  }
+
+  // Recalculate 10-minute queue times
+  recalculateQueueTimes();
+
+  // Update appointment
+  appt.status = 'Approved';
+  appt.assignedDepartment = targetDept.includes('Clinic') ? targetDept : `${targetDept} Clinic`;
+  appt.assignedRoom = targetRoom;
+  appt.assignedDoctor = targetDoctor;
+  appt.urgency = targetUrgency;
+  appt.queueToken = queueToken;
+  appt.reviewedAt = new Date().toISOString();
+  appt.adminNote = `Approved for ${appt.assignedDepartment}, ${appt.assignedRoom}.`;
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Appointment Approved',
+    detail: `${appt.id} approved for ${appt.patientName} → ${appt.assignedDepartment} (${appt.assignedRoom}) · Queue Token: ${queueToken}`,
+    actor: 'Admin',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ success: true, appointment: appt, queueToken });
+});
+
+// Admin rejects appointment
+app.put('/api/appointments/:id/reject', (req, res) => {
+  const { rejectionReason, adminNote } = req.body;
+  const appt = dataStore.appointments.find((a) => a.id === req.params.id);
+  if (!appt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+
+  appt.status = 'Rejected';
+  appt.rejectionReason = rejectionReason || 'Appointment criteria not met or hospital capacity exceeded.';
+  appt.adminNote = adminNote || appt.rejectionReason;
+  appt.reviewedAt = new Date().toISOString();
+
+  // Cancel any associated queue token
+  if (appt.queueToken) {
+    const qIdx = dataStore.queue.findIndex((q) => q.token === appt.queueToken || q.appointmentId === appt.id);
+    if (qIdx !== -1) {
+      dataStore.queue.splice(qIdx, 1);
+      recalculateQueueTimes();
+    }
+  }
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Appointment Rejected',
+    detail: `${appt.id} rejected for ${appt.patientName}. Reason: ${appt.rejectionReason}`,
+    actor: 'Admin',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ success: true, appointment: appt });
+});
+
+// Admin requests additional documents
+app.put('/api/appointments/:id/request-docs', (req, res) => {
+  const { requestedDocuments, adminNote } = req.body;
+  const appt = dataStore.appointments.find((a) => a.id === req.params.id);
+  if (!appt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+
+  const docList = Array.isArray(requestedDocuments)
+    ? requestedDocuments
+    : typeof requestedDocuments === 'string'
+    ? requestedDocuments.split(',').map((s) => s.trim()).filter(Boolean)
+    : ['Additional Supporting Medical Documents'];
+
+  appt.status = 'Additional Documents Required';
+  appt.requestedDocuments = docList;
+  appt.adminNote = adminNote || 'Please upload the requested supporting documents to proceed with approval.';
+  appt.reviewedAt = new Date().toISOString();
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Additional Documents Requested',
+    detail: `${appt.id} (${appt.patientName}) — Admin requested: ${docList.join(', ')}`,
+    actor: 'Admin',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ success: true, appointment: appt });
+});
+
+// Patient uploads requested additional documents
+app.post('/api/appointments/:id/upload-additional-docs', upload.single('supportingFile'), (req, res) => {
+  const appt = dataStore.appointments.find((a) => a.id === req.params.id);
+  if (!appt) return res.status(404).json({ success: false, message: 'Appointment not found' });
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+  const ext = req.file.originalname.split('.').pop().toLowerCase();
+  const docId = `DOC-${String(Date.now()).slice(-6)}`;
+  const fileObj = {
+    id: docId,
+    originalName: req.file.originalname,
+    filename: req.file.filename,
+    size: (req.file.size / (1024 * 1024)).toFixed(2) + ' MB',
+    type: ext,
+    uploadDate: new Date().toISOString(),
+  };
+
+  if (!appt.supportingFiles) appt.supportingFiles = [];
+  appt.supportingFiles.push(fileObj);
+
+  // Return status to Pending Review so admin can verify newly uploaded docs
+  appt.status = 'Pending Review';
+
+  dataStore.patientDocuments.unshift({
+    ...fileObj,
+    patientId: appt.patientId,
+    patientName: appt.patientName,
+    category: 'Requested Additional Medical Document',
+    status: 'Pending Verification',
+    adminNote: '',
+  });
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Additional Documents Uploaded',
+    detail: `${req.file.originalname} uploaded for ${appt.id} (${appt.patientName}) — Returned to Pending Review`,
+    actor: appt.patientName,
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({
+    success: true,
+    message: 'Additional document uploaded successfully! The hospital administration will review your updated file.',
+    appointment: appt,
+  });
+});
+
+// Admin reorders queue (Move Up/Down or Prioritize by Urgency) and recalculates 10-minute slots
+app.put('/api/admin/queue/reorder', (req, res) => {
+  const { action, token, direction, newOrder } = req.body;
+
+  if (action === 'prioritize_urgency') {
+    // Urgency priority map: Emergency (4) > High (3) > Medium (2) > Routine/Low (1)
+    const urgencyWeight = { Emergency: 4, High: 3, Medium: 2, Routine: 1, Low: 1 };
+    dataStore.queue.sort((a, b) => {
+      const wA = urgencyWeight[a.urgency] || 1;
+      const wB = urgencyWeight[b.urgency] || 1;
+      return wB - wA; // Descending
+    });
+  } else if (action === 'move' && token && direction) {
+    const idx = dataStore.queue.findIndex((q) => q.token === token);
+    if (idx !== -1) {
+      if (direction === 'up' && idx > 0) {
+        const temp = dataStore.queue[idx];
+        dataStore.queue[idx] = dataStore.queue[idx - 1];
+        dataStore.queue[idx - 1] = temp;
+      } else if (direction === 'down' && idx < dataStore.queue.length - 1) {
+        const temp = dataStore.queue[idx];
+        dataStore.queue[idx] = dataStore.queue[idx + 1];
+        dataStore.queue[idx + 1] = temp;
+      }
+    }
+  } else if (Array.isArray(newOrder) && newOrder.length > 0) {
+    const reordered = [];
+    newOrder.forEach((t) => {
+      const item = dataStore.queue.find((q) => q.token === t);
+      if (item) reordered.push(item);
+    });
+    // Append any not explicitly in newOrder
+    dataStore.queue.forEach((q) => {
+      if (!reordered.find((x) => x.token === q.token)) reordered.push(q);
+    });
+    dataStore.queue = reordered;
+  }
+
+  // Recalculate 10-minute time slots
+  recalculateQueueTimes();
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Queue Reordered',
+    detail: action === 'prioritize_urgency' ? 'Queue re-prioritized by urgency level' : `Queue order adjusted (Token: ${token || 'custom'})`,
+    actor: 'Admin',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ success: true, queue: dataStore.queue });
 });
 
 // --- QUEUE ---
@@ -303,11 +633,10 @@ app.get('/api/admin/stats', (req, res) => {
   const totalDonors = dataStore.financialCases.reduce((sum, c) => sum + c.donorsCount, 0);
   const totalQueueEntries = dataStore.queue.length;
   const totalHospitals = dataStore.hospitals.length;
-  const totalAppointments = dataStore.appointments.length;
-  const totalDocuments = dataStore.patientDocuments.length;
-  const pendingDocuments = dataStore.patientDocuments.filter((d) => d.status === 'Pending Verification').length;
-  const verifiedDocuments = dataStore.patientDocuments.filter((d) => d.status === 'Verified').length;
-  const rejectedDocuments = dataStore.patientDocuments.filter((d) => d.status === 'Rejected').length;
+  const pendingAppointments = dataStore.appointments.filter((a) => a.status === 'Pending Review').length;
+  const docsRequestedAppointments = dataStore.appointments.filter((a) => a.status === 'Additional Documents Required').length;
+  const approvedAppointments = dataStore.appointments.filter((a) => a.status === 'Approved').length;
+  const rejectedAppointments = dataStore.appointments.filter((a) => a.status === 'Rejected').length;
 
   res.json({
     success: true,
@@ -320,6 +649,9 @@ app.get('/api/admin/stats', (req, res) => {
       totalQueueEntries,
       totalHospitals,
       totalAppointments,
+      pendingAppointments: pendingAppointments + docsRequestedAppointments,
+      approvedAppointments,
+      rejectedAppointments,
       totalDocuments,
       pendingDocuments,
       verifiedDocuments,
@@ -458,8 +790,35 @@ app.put('/api/admin/queue/:token/status', (req, res) => {
 app.delete('/api/admin/queue/:token', (req, res) => {
   const idx = dataStore.queue.findIndex((q) => q.token === req.params.token);
   if (idx === -1) return res.status(404).json({ success: false, message: 'Not found' });
+
+  const removed = dataStore.queue[idx];
   dataStore.queue.splice(idx, 1);
-  res.json({ success: true });
+
+  // Sync removal to the linked appointment so the user sees "Cancelled"
+  const linkedAppt =
+    (removed.appointmentId && dataStore.appointments.find((a) => a.id === removed.appointmentId)) ||
+    dataStore.appointments.find((a) => a.queueToken === removed.token);
+
+  if (linkedAppt) {
+    linkedAppt.status = 'Cancelled';
+    linkedAppt.queueToken = null;
+    linkedAppt.adminNote = linkedAppt.adminNote
+      ? `${linkedAppt.adminNote} — Removed from queue by admin.`
+      : 'Removed from queue by admin.';
+  }
+
+  // Recalculate 10-minute slots for remaining queue entries
+  recalculateQueueTimes();
+
+  dataStore.activityLog.unshift({
+    id: `LOG-${Date.now()}`,
+    action: 'Queue Entry Removed',
+    detail: `Token ${removed.token} (${removed.patientName || 'Unknown'}) removed from queue`,
+    actor: 'Admin',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ success: true, queue: dataStore.queue });
 });
 
 // --- ADMIN: ACTIVITY LOG ---

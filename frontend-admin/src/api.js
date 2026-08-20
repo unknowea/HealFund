@@ -47,8 +47,17 @@ export const getAppointments = (params = {}) => {
   return handle(fetch(`${BASE}/appointments${q ? '?' + q : ''}`, { headers: headers() }));
 };
 
-export const createAppointment = (payload) =>
-  handle(fetch(`${BASE}/appointments`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }));
+export const getAppointmentById = (id) =>
+  handle(fetch(`${BASE}/appointments/${id}`, { headers: headers() }));
+
+export const approveAppointment = (id, payload) =>
+  handle(fetch(`${BASE}/appointments/${id}/approve`, { method: 'PUT', headers: headers(), body: JSON.stringify(payload) }));
+
+export const rejectAppointment = (id, payload) =>
+  handle(fetch(`${BASE}/appointments/${id}/reject`, { method: 'PUT', headers: headers(), body: JSON.stringify(payload) }));
+
+export const requestAdditionalDocs = (id, payload) =>
+  handle(fetch(`${BASE}/appointments/${id}/request-docs`, { method: 'PUT', headers: headers(), body: JSON.stringify(payload) }));
 
 // ─── QUEUE ─────────────────────────────────────────────────────────────────────
 export const getQueue = (params = {}) => {
@@ -58,6 +67,9 @@ export const getQueue = (params = {}) => {
 
 export const updateQueueStatus = (token, status) =>
   handle(fetch(`${BASE}/queue/${token}/status`, { method: 'PUT', headers: headers(), body: JSON.stringify({ status }) }));
+
+export const reorderQueue = (payload) =>
+  handle(fetch(`${BASE}/admin/queue/reorder`, { method: 'PUT', headers: headers(), body: JSON.stringify(payload) }));
 
 // ─── FINANCIAL CASES ───────────────────────────────────────────────────────────
 export const getFinancialCases = () =>

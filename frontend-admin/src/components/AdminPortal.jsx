@@ -85,7 +85,7 @@ function AdminLogin({ onLoginSuccess }) {
         </form>
         <p className="admin-login-hint">
           <i className="fas fa-info-circle"></i> Demo: <code>admin@zewditu.gov.et</code> / <code>admin123</code>
-          &nbsp;or&nbsp; <code>staff@lidetahc.gov.et</code> / <code>hospital123</code>
+          &nbsp;or&nbsp; <code>staff@zewditu.gov.et</code> / <code>hospital123</code>
         </p>
       </div>
     </div>
@@ -479,11 +479,27 @@ function DocumentsTab() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label style={{ fontSize: '12px' }}>Clinic / Department</label>
                     <select value={department} onChange={(e) => setDepartment(e.target.value)} style={{ padding: '8px', fontSize: '13px' }}>
+                      <option value="General Medicine Clinic">General Medicine Clinic</option>
                       <option value="Cardiology Clinic (Room 104)">Cardiology Clinic (Room 104)</option>
                       <option value="General Surgery Clinic (Room 201)">General Surgery Clinic (Room 201)</option>
                       <option value="Pediatrics Clinic (Room 108)">Pediatrics Clinic (Room 108)</option>
                       <option value="Internal Medicine Clinic (Room 105)">Internal Medicine Clinic (Room 105)</option>
                       <option value="Oncology Consultation (Room 302)">Oncology Consultation (Room 302)</option>
+                      <option value="Orthopedics Clinic">Orthopedics Clinic</option>
+                      <option value="Neurology & Neurosurgery Clinic">Neurology & Neurosurgery Clinic</option>
+                      <option value="Nephrology & Dialysis Unit">Nephrology & Dialysis Unit</option>
+                      <option value="Ophthalmology Specialty Clinic">Ophthalmology Specialty Clinic</option>
+                      <option value="Obstetrics & Gynecology Clinic">Obstetrics & Gynecology Clinic</option>
+                      <option value="Pulmonology & Respiratory Clinic">Pulmonology & Respiratory Clinic</option>
+                      <option value="Gastroenterology & Hepatology Clinic">Gastroenterology & Hepatology Clinic</option>
+                      <option value="Urology Surgery Clinic">Urology Surgery Clinic</option>
+                      <option value="Dermatology Clinic">Dermatology Clinic</option>
+                      <option value="ENT Specialty Clinic">ENT Specialty Clinic</option>
+                      <option value="Psychiatry & Mental Health Clinic">Psychiatry & Mental Health Clinic</option>
+                      <option value="Endocrinology Clinic">Endocrinology Clinic</option>
+                      <option value="Hematology Clinic">Hematology Clinic</option>
+                      <option value="Infectious Diseases Clinic">Infectious Diseases Clinic</option>
+                      <option value="Emergency & Trauma Triage">Emergency & Trauma Triage</option>
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -815,54 +831,816 @@ function HospitalsTab() {
   );
 }
 
-// --- Queue Tab ---
+// --- Appointments Tab (Core Triage Workflow: Approve with Dept/Room/10-min slot, Reject, Request Docs) ---
+function AppointmentsTab() {
+  const [appointments, setAppointments] = useState([]);
+  const [filter, setFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selectedAppt, setSelectedAppt] = useState(null);
+
+  // Action Modals: 'view' | 'approve' | 'reject' | 'requestDocs' | null
+  const [actionType, setActionType] = useState(null);
+
+  // Form states for approval
+  const [dept, setDept] = useState('Cardiology Clinic');
+  const [roomNum, setRoomNum] = useState('Room 104');
+  const [doctor, setDoctor] = useState('Dr. M. Worku');
+  const [urgencyVal, setUrgencyVal] = useState('Medium');
+
+  // Form states for rejection
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Form states for document request
+  const [docListText, setDocListText] = useState('');
+  const [reqNote, setReqNote] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const load = async (status = filter) => {
+    setLoading(true);
+    try {
+      const q = status !== 'All' ? `?status=${encodeURIComponent(status)}` : '';
+      const res = await API(`/api/appointments${q}`);
+      const data = await res.json();
+      if (data.success) setAppointments(data.appointments);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleFilterChange = (f) => { setFilter(f); load(f); };
+
+  const openApproveModal = (appt) => {
+    setSelectedAppt(appt);
+    setDept(appt.preferredDepartment ? (appt.preferredDepartment.includes('Clinic') ? appt.preferredDepartment : `${appt.preferredDepartment} Clinic`) : 'General Medicine Clinic');
+    setRoomNum(appt.assignedRoom || 'Room 101');
+    setDoctor(appt.assignedDoctor || 'Dr. M. Worku');
+    setUrgencyVal(appt.urgency || 'Medium');
+    setActionType('approve');
+  };
+
+  const openRejectModal = (appt) => {
+    setSelectedAppt(appt);
+    setRejectReason(appt.rejectionReason || '');
+    setActionType('reject');
+  };
+
+  const openRequestDocsModal = (appt) => {
+    setSelectedAppt(appt);
+    setDocListText(appt.requestedDocuments && appt.requestedDocuments.length > 0 ? appt.requestedDocuments.join(', ') : 'Lab Report, Doctor Referral, Government ID');
+    setReqNote(appt.adminNote || '');
+    setActionType('requestDocs');
+  };
+
+  const openViewDetail = (appt) => {
+    setSelectedAppt(appt);
+    setActionType('view');
+  };
+
+  const submitApprove = async () => {
+    if (!selectedAppt) return;
+    if (!roomNum.trim()) { alert('Please enter a Room Number (e.g. Room 104)'); return; }
+    setSubmitting(true);
+    try {
+      const res = await API(`/api/appointments/${selectedAppt.id}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          department: dept,
+          roomNumber: roomNum,
+          assignedDoctor: doctor,
+          urgency: urgencyVal,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast(`Appointment approved! Assigned to ${data.appointment.assignedDepartment}, ${data.appointment.assignedRoom} · Queue Token: ${data.queueToken}`);
+        setTimeout(() => setToast(''), 5000);
+        setActionType(null);
+        setSelectedAppt(null);
+        load(filter);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitReject = async () => {
+    if (!selectedAppt) return;
+    if (!rejectReason.trim()) { alert('Please enter a rejection reason.'); return; }
+    setSubmitting(true);
+    try {
+      const res = await API(`/api/appointments/${selectedAppt.id}/reject`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          rejectionReason: rejectReason,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast(`Appointment marked as Rejected.`);
+        setTimeout(() => setToast(''), 4000);
+        setActionType(null);
+        setSelectedAppt(null);
+        load(filter);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitRequestDocs = async () => {
+    if (!selectedAppt) return;
+    if (!docListText.trim()) { alert('Please specify the required documents.'); return; }
+    setSubmitting(true);
+    try {
+      const docList = docListText.split(',').map((s) => s.trim()).filter(Boolean);
+      const res = await API(`/api/appointments/${selectedAppt.id}/request-docs`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          requestedDocuments: docList,
+          adminNote: reqNote,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast(`Additional documents requested for patient ${selectedAppt.patientName}.`);
+        setTimeout(() => setToast(''), 4000);
+        setActionType(null);
+        setSelectedAppt(null);
+        load(filter);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const urgencyClass = (u) =>
+    u === 'Emergency' ? 'status-urgency-high' :
+    u === 'High' ? 'status-urgency-high' :
+    u === 'Medium' ? 'status-urgency-medium' : 'status-urgency-low';
+
+  const urgencyBadgeStyle = (u) => {
+    if (u === 'Emergency') return { background: '#da121a', color: '#fff' };
+    if (u === 'High') return { background: '#e05000', color: '#fff' };
+    if (u === 'Medium') return { background: '#e07b00', color: '#fff' };
+    return { background: '#078930', color: '#fff' };
+  };
+
+  const filtered = appointments.filter((a) => {
+    const q = search.toLowerCase();
+    return (
+      (a.patientName && a.patientName.toLowerCase().includes(q)) ||
+      (a.patientId && a.patientId.toLowerCase().includes(q)) ||
+      (a.disease && a.disease.toLowerCase().includes(q)) ||
+      (a.id && a.id.toLowerCase().includes(q))
+    );
+  });
+
+  const counts = {
+    All: appointments.length,
+    'Pending Review': appointments.filter((a) => a.status === 'Pending Review' || a.status === 'Pending').length,
+    'Additional Documents Required': appointments.filter((a) => a.status === 'Additional Documents Required').length,
+    Approved: appointments.filter((a) => a.status === 'Approved' || a.status === 'Confirmed').length,
+    Rejected: appointments.filter((a) => a.status === 'Rejected').length,
+  };
+
+  return (
+    <div>
+      {toast && (
+        <div className="admin-alert admin-alert-success" style={{ marginBottom: '16px' }}>
+          <i className="fas fa-check-circle"></i> {toast}
+        </div>
+      )}
+
+      {/* Admin Triage Overview Banner */}
+      <div style={{ background: 'linear-gradient(135deg, #0f3b5e 0%, #078930 100%)', color: '#fff', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h4 style={{ margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px' }}>
+            <i className="fas fa-stethoscope"></i> Patient Appointment Triage & Queue Allocation
+          </h4>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#e0f2fe' }}>
+            Review submitted patient symptoms, evaluate urgency levels and attached medical files. Approve requests by assigning a <strong>Department</strong> and <strong>Room Number</strong> (allocating a 10-minute queue slot), request additional documents, or reject.
+          </p>
+        </div>
+        <span className="status-badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', padding: '6px 14px', fontSize: '12px' }}>
+          <i className="fas fa-user-clock"></i> ~10 Mins / Patient Slot
+        </span>
+      </div>
+
+      {/* Toolbar & Filter Pills */}
+      <div className="admin-toolbar">
+        <div className="admin-search">
+          <i className="fas fa-search"></i>
+          <input
+            type="text"
+            placeholder="Search patient, symptoms, or ID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="admin-filter-pills">
+          {Object.entries(counts).map(([label, count]) => (
+            <button
+              key={label}
+              className={`admin-pill ${filter === label ? 'active' : ''}`}
+              onClick={() => handleFilterChange(label)}
+            >
+              {label === 'Additional Documents Required' ? 'Docs Needed' : label}
+              <span style={{ marginLeft: '5px', background: 'rgba(0,0,0,0.12)', borderRadius: '30px', padding: '1px 7px', fontSize: '11px' }}>
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-outline" style={{ fontSize: '13px', padding: '6px 14px' }} onClick={() => load(filter)}>
+          <i className="fas fa-sync-alt"></i> Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i> Loading appointment requests…</div>
+      ) : (
+        <div className="card">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Patient & Booker</th>
+                <th>Relationship</th>
+                <th>Condition / Disease</th>
+                <th>Urgency</th>
+                <th>Docs Attached</th>
+                <th>Status</th>
+                <th>Assigned Dept / Room</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', color: '#7a8a9e', padding: '32px' }}>
+                    No appointment requests found
+                  </td>
+                </tr>
+              )}
+              {filtered.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <div style={{ fontWeight: 700, color: '#0f3b5e' }}>{a.patientName}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>
+                      {a.patientId} · {a.patientAge ? `${a.patientAge}y/o ` : ''}{a.patientGender || ''}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="admin-tag" style={{ background: a.isForSelf ? '#e8f5e9' : '#e0f2fe', color: a.isForSelf ? '#078930' : '#0369a1' }}>
+                      {a.isForSelf ? 'Self' : a.relationship || 'Dependent'}
+                    </span>
+                  </td>
+                  <td style={{ maxWidth: '220px', fontSize: '13px' }}>
+                    <div style={{ fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.disease}>
+                      {a.disease}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Dept Pref: {a.preferredDepartment || 'General'}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="status-badge" style={{ ...urgencyBadgeStyle(a.urgency), fontSize: '11px', padding: '2px 8px' }}>
+                      {a.urgency}
+                    </span>
+                  </td>
+                  <td>
+                    {a.supportingFiles && a.supportingFiles.length > 0 ? (
+                      <span style={{ color: '#078930', fontWeight: 600, fontSize: '12px' }}>
+                        <i className="fas fa-paperclip"></i> {a.supportingFiles.length} file(s)
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94a3b8', fontSize: '12px' }}>None</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`status-badge ${a.status === 'Approved' ? 'status-verified' : a.status === 'Rejected' ? 'status-rejected' : 'status-pending'}`} style={{ fontSize: '12px' }}>
+                      {a.status === 'Additional Documents Required' ? 'Docs Needed' : a.status}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: '12px' }}>
+                    {a.assignedRoom ? (
+                      <div>
+                        <strong>{a.assignedRoom}</strong>
+                        <div style={{ color: '#64748b' }}>{a.assignedDepartment}</div>
+                        {a.queueToken && <span style={{ color: '#078930', fontWeight: 700 }}>Token: {a.queueToken}</span>}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>Unassigned</span>
+                    )}
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        className="btn btn-outline"
+                        title="View Details"
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                        onClick={() => openViewDetail(a)}
+                      >
+                        <i className="fas fa-eye"></i>
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        title="Approve & Assign Room"
+                        style={{ padding: '4px 8px', fontSize: '12px', background: '#078930' }}
+                        onClick={() => openApproveModal(a)}
+                      >
+                        <i className="fas fa-check"></i>
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        title="Request Additional Docs"
+                        style={{ padding: '4px 8px', fontSize: '12px', color: '#e07b00', borderColor: '#e07b00' }}
+                        onClick={() => openRequestDocsModal(a)}
+                      >
+                        <i className="fas fa-file-medical"></i>
+                      </button>
+                      <button
+                        className="admin-btn-danger"
+                        title="Reject Appointment"
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
+                        onClick={() => openRejectModal(a)}
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* DETAIL VIEW MODAL */}
+      {actionType === 'view' && selectedAppt && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: '#0f3b5e', margin: 0 }}>
+                <i className="fas fa-id-card-alt" style={{ color: '#078930' }}></i> Appointment Request Details
+              </h3>
+              <button onClick={() => { setActionType(null); setSelectedAppt(null); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+              <div className="info-row"><span className="label">Patient Name:</span><span className="value"><strong>{selectedAppt.patientName}</strong></span></div>
+              <div className="info-row"><span className="label">Patient ID:</span><span className="value">{selectedAppt.patientId}</span></div>
+              <div className="info-row"><span className="label">Booked By:</span><span className="value">{selectedAppt.isForSelf ? 'Self' : `Relative / Dependent (${selectedAppt.relationship})`}</span></div>
+              <div className="info-row"><span className="label">Age & Gender:</span><span className="value">{selectedAppt.patientAge || '—'} years / {selectedAppt.patientGender || '—'}</span></div>
+              <div className="info-row"><span className="label">Phone:</span><span className="value">{selectedAppt.patientPhone || 'Not provided'}</span></div>
+              <div className="info-row">
+                <span className="label">Urgency:</span>
+                <span className="value"><span className="status-badge" style={urgencyBadgeStyle(selectedAppt.urgency)}>{selectedAppt.urgency}</span></span>
+              </div>
+              <div className="info-row"><span className="label">Current Status:</span><span className="value"><strong>{selectedAppt.status}</strong></span></div>
+              {selectedAppt.assignedRoom && (
+                <>
+                  <div className="info-row"><span className="label">Assigned Room:</span><span className="value"><strong style={{ color: '#078930' }}>{selectedAppt.assignedRoom}</strong></span></div>
+                  <div className="info-row"><span className="label">Assigned Department:</span><span className="value"><strong>{selectedAppt.assignedDepartment}</strong></span></div>
+                  <div className="info-row"><span className="label">Doctor:</span><span className="value">{selectedAppt.assignedDoctor}</span></div>
+                  <div className="info-row"><span className="label">Queue Token:</span><span className="value"><strong>{selectedAppt.queueToken}</strong></span></div>
+                </>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <h5 style={{ color: '#0f3b5e', marginBottom: '6px' }}><i className="fas fa-notes-medical"></i> Reported Condition / Symptoms:</h5>
+              <div style={{ background: '#fff', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', color: '#334155' }}>
+                {selectedAppt.disease}
+              </div>
+            </div>
+
+            {selectedAppt.supportingFiles && selectedAppt.supportingFiles.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h5 style={{ color: '#0f3b5e', marginBottom: '8px' }}><i className="fas fa-paperclip"></i> Attached Supporting Documents:</h5>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {selectedAppt.supportingFiles.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f1f5f9', padding: '8px 14px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                        <i className="fas fa-file-pdf" style={{ color: '#da121a', marginRight: '6px' }}></i> {f.originalName} ({f.size})
+                      </span>
+                      {f.id && (
+                        <a href={`/api/admin/documents/${f.id}/file`} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                          <i className="fas fa-download"></i> View / Download
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" style={{ background: '#078930' }} onClick={() => openApproveModal(selectedAppt)}>
+                <i className="fas fa-check"></i> Approve
+              </button>
+              <button className="btn btn-outline" style={{ color: '#e07b00', borderColor: '#e07b00' }} onClick={() => openRequestDocsModal(selectedAppt)}>
+                <i className="fas fa-file-medical"></i> Request Docs
+              </button>
+              <button className="btn btn-outline" style={{ color: '#da121a', borderColor: '#da121a' }} onClick={() => openRejectModal(selectedAppt)}>
+                <i className="fas fa-times"></i> Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* APPROVE MODAL (Assigns Department, Room Number, Doctor, & 10-min Queue Slot) */}
+      {actionType === 'approve' && selectedAppt && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: '#078930', margin: 0 }}>
+                <i className="fas fa-check-circle"></i> Approve & Assign Clinic Room
+              </h3>
+              <button onClick={() => setActionType(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#4a5a6e', marginBottom: '16px' }}>
+              Approve appointment for <strong>{selectedAppt.patientName}</strong> ({selectedAppt.patientId}). The system will generate a queue token and assign a sequential <strong>~10-minute consultation slot</strong>.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontWeight: 700 }}>Assigned Department *</label>
+                <select value={dept} onChange={(e) => setDept(e.target.value)} style={{ width: '100%' }}>
+                  <option value="General Medicine Clinic">General Medicine Clinic</option>
+                  <option value="Cardiology Clinic">Cardiology Clinic</option>
+                  <option value="General Surgery Clinic">General Surgery Clinic</option>
+                  <option value="Pediatrics Clinic">Pediatrics Clinic</option>
+                  <option value="Orthopedics Clinic">Orthopedics Clinic</option>
+                  <option value="Oncology Clinic">Oncology Clinic</option>
+                  <option value="Internal Medicine Clinic">Internal Medicine Clinic</option>
+                  <option value="Neurology & Neurosurgery Clinic">Neurology & Neurosurgery Clinic</option>
+                  <option value="Nephrology & Dialysis Unit">Nephrology & Dialysis Unit</option>
+                  <option value="Ophthalmology Specialty Clinic">Ophthalmology Specialty Clinic</option>
+                  <option value="Obstetrics & Gynecology Clinic">Obstetrics & Gynecology Clinic</option>
+                  <option value="Pulmonology & Respiratory Clinic">Pulmonology & Respiratory Clinic</option>
+                  <option value="Gastroenterology & Hepatology Clinic">Gastroenterology & Hepatology Clinic</option>
+                  <option value="Urology Surgery Clinic">Urology Surgery Clinic</option>
+                  <option value="Dermatology Clinic">Dermatology Clinic</option>
+                  <option value="ENT Specialty Clinic">ENT Specialty Clinic</option>
+                  <option value="Psychiatry & Mental Health Clinic">Psychiatry & Mental Health Clinic</option>
+                  <option value="Endocrinology Clinic">Endocrinology Clinic</option>
+                  <option value="Hematology Clinic">Hematology Clinic</option>
+                  <option value="Infectious Diseases Clinic">Infectious Diseases Clinic</option>
+                  <option value="Emergency & Trauma Triage">Emergency & Trauma Triage</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontWeight: 700 }}>Assigned Room Number *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Room 104, Room 202, Room 3B"
+                  value={roomNum}
+                  onChange={(e) => setRoomNum(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontWeight: 700 }}>Assigned Doctor</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. M. Worku"
+                  value={doctor}
+                  onChange={(e) => setDoctor(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontWeight: 700 }}>Triage Urgency Level</label>
+                <select value={urgencyVal} onChange={(e) => setUrgencyVal(e.target.value)}>
+                  <option value="Routine">Routine (Low)</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High Urgency</option>
+                  <option value="Emergency">Emergency</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, background: '#078930' }}
+                  disabled={submitting}
+                  onClick={submitApprove}
+                >
+                  {submitting ? <><i className="fas fa-spinner fa-spin"></i> Approving…</> : <><i className="fas fa-check"></i> Confirm Approval & Queue</>}
+                </button>
+                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setActionType(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT MODAL */}
+      {actionType === 'reject' && selectedAppt && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: '#da121a', margin: 0 }}>
+                <i className="fas fa-times-circle"></i> Reject Appointment Request
+              </h3>
+              <button onClick={() => setActionType(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#4a5a6e', marginBottom: '16px' }}>
+              Please specify the reason for rejecting <strong>{selectedAppt.patientName}'s</strong> appointment request.
+            </p>
+
+            <div className="form-group">
+              <label style={{ fontWeight: 700 }}>Rejection Reason / Admin Note *</label>
+              <textarea
+                rows="3"
+                placeholder="e.g. Hospital specialized capacity full for this week; please visit the outpatient clinic or re-submit."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d0dbe8' }}
+              ></textarea>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '14px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, background: '#da121a' }}
+                disabled={submitting}
+                onClick={submitReject}
+              >
+                {submitting ? <><i className="fas fa-spinner fa-spin"></i> Rejecting…</> : <><i className="fas fa-times"></i> Confirm Rejection</>}
+              </button>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setActionType(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REQUEST ADDITIONAL DOCUMENTS MODAL */}
+      {actionType === 'requestDocs' && selectedAppt && (
+        <div className="modal-overlay">
+          <div className="modal-box" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: '#e07b00', margin: 0 }}>
+                <i className="fas fa-file-medical"></i> Request Additional Documents
+              </h3>
+              <button onClick={() => setActionType(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#4a5a6e', marginBottom: '16px' }}>
+              Specify the documents required from <strong>{selectedAppt.patientName}</strong> before approval can proceed.
+            </p>
+
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label style={{ fontWeight: 700 }}>List Required Documents (Comma-separated) *</label>
+              <input
+                type="text"
+                placeholder="e.g. Previous Echocardiogram, Government ID, Referral Note"
+                value={docListText}
+                onChange={(e) => setDocListText(e.target.value)}
+              />
+              <small style={{ color: '#64748b' }}>Separate each required item with a comma.</small>
+            </div>
+
+            <div className="form-group">
+              <label style={{ fontWeight: 700 }}>Instructions / Note for Patient</label>
+              <textarea
+                rows="2"
+                placeholder="e.g. Please upload your recent lab test report from the past 3 months."
+                value={reqNote}
+                onChange={(e) => setReqNote(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d0dbe8' }}
+              ></textarea>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, background: '#e07b00' }}
+                disabled={submitting}
+                onClick={submitRequestDocs}
+              >
+                {submitting ? <><i className="fas fa-spinner fa-spin"></i> Submitting Request…</> : <><i className="fas fa-paper-plane"></i> Send Request to Patient</>}
+              </button>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setActionType(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Queue Tab (With Reordering & 10-Minute Consultation Slot Tracking) ---
 function QueueTab() {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
 
   const load = async () => {
     setLoading(true);
-    try { const res = await API('/api/admin/queue'); const data = await res.json(); if (data.success) setQueue(data.queue); }
-    finally { setLoading(false); }
+    try {
+      const res = await API('/api/admin/queue');
+      const data = await res.json();
+      if (data.success) setQueue(data.queue);
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => { load(); }, []);
 
   const handleStatus = async (token, status) => {
     await API(`/api/admin/queue/${token}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
     load();
   };
-  const handleRemove = async (token) => { await API(`/api/admin/queue/${token}`, { method: 'DELETE' }); load(); };
+
+  const handleRemove = async (token, patientName) => {
+    const confirmed = window.confirm(
+      `Remove ${patientName || token} from the queue?\n\nThis will cancel their appointment and they will see "Cancelled by Admin" on their portal.`
+    );
+    if (!confirmed) return;
+    try {
+      const res = await API(`/api/admin/queue/${token}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setQueue(data.queue || []);
+        setToast(`${patientName || token} removed from queue. Their appointment has been cancelled.`);
+        setTimeout(() => setToast(''), 5000);
+      }
+    } catch (err) {
+      console.error('Remove error:', err);
+      load(); // fallback
+    }
+  };
+
+  const handleMove = async (token, direction) => {
+    try {
+      const res = await API('/api/admin/queue/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ action: 'move', token, direction }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQueue(data.queue);
+        setToast(`Queue order updated and 10-minute consultation times recalculated.`);
+        setTimeout(() => setToast(''), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePrioritizeUrgency = async () => {
+    try {
+      const res = await API('/api/admin/queue/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ action: 'prioritize_urgency' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQueue(data.queue);
+        setToast(`Queue re-prioritized: Emergency & High Urgency patients moved to the front!`);
+        setTimeout(() => setToast(''), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const statusColors = { Scheduled: '#0f3b5e', Waiting: '#e07b00', 'In Progress': '#078930', Completed: '#28a745', Cancelled: '#da121a' };
-  const urgencyClass = (u) => u === 'High' ? 'status-urgency-high' : u === 'Medium' ? 'status-urgency-medium' : 'status-urgency-low';
+  const urgencyClass = (u) => u === 'Emergency' || u === 'High' ? 'status-urgency-high' : u === 'Medium' ? 'status-urgency-medium' : 'status-urgency-low';
 
   return (
     <div>
-      <div className="admin-toolbar">
-        <h3 style={{ color: '#0f3b5e', fontSize: '17px', fontWeight: 700 }}><i className="fas fa-list-ol" style={{ color: '#da121a' }}></i> Queue Management</h3>
-        <button className="btn btn-outline" style={{ fontSize: '13px', padding: '6px 16px' }} onClick={load}><i className="fas fa-sync-alt"></i> Refresh</button>
+      {toast && (
+        <div className="admin-alert admin-alert-success" style={{ marginBottom: '16px' }}>
+          <i className="fas fa-check-circle"></i> {toast}
+        </div>
+      )}
+
+      <div className="admin-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h3 style={{ color: '#0f3b5e', fontSize: '17px', fontWeight: 700, margin: 0 }}>
+            <i className="fas fa-list-ol" style={{ color: '#da121a' }}></i> Live Queue & Consultation Slot Management
+          </h3>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            ~10 minutes allocated per patient in sequence. Admin can reorder or prioritize high urgency patients.
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="btn btn-primary"
+            style={{ background: '#da121a', fontSize: '13px', padding: '6px 14px' }}
+            onClick={handlePrioritizeUrgency}
+            title="Auto-sort High/Emergency urgency patients to the front"
+          >
+            <i className="fas fa-bolt"></i> Auto-Prioritize by Urgency
+          </button>
+          <button className="btn btn-outline" style={{ fontSize: '13px', padding: '6px 16px' }} onClick={load}>
+            <i className="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
       </div>
-      {loading ? <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i> Loading queue…</div> : (
+
+      {loading ? (
+        <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i> Loading queue…</div>
+      ) : (
         <div className="card">
           <table className="admin-table">
-            <thead><tr><th>Token</th><th>Patient</th><th>Department</th><th>Doctor</th><th>Est. Time</th><th>Urgency</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Token</th>
+                <th>Patient</th>
+                <th>Dept & Room Number</th>
+                <th>Doctor</th>
+                <th>Consultation Slot (~10m)</th>
+                <th>Urgency</th>
+                <th>Status</th>
+                <th>Reorder & Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              {queue.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', color: '#7a8a9e' }}>Queue is empty</td></tr>}
-              {queue.map((q) => (
+              {queue.length === 0 && (
+                <tr><td colSpan={9} style={{ textAlign: 'center', color: '#7a8a9e', padding: '24px' }}>Queue is empty</td></tr>
+              )}
+              {queue.map((q, idx) => (
                 <tr key={q.token}>
+                  <td style={{ fontWeight: 800, color: '#64748b' }}>#{idx + 1}</td>
                   <td><span className="admin-token">{q.token}</span></td>
-                  <td><div style={{ fontWeight: 600 }}>{q.patientName}</div><div style={{ fontSize: '12px', color: '#7a8a9e' }}>{q.patientId}</div></td>
-                  <td style={{ fontSize: '13px' }}>{q.department}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{q.patientName}</div>
+                    <div style={{ fontSize: '12px', color: '#7a8a9e' }}>{q.patientId}</div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 700, color: '#078930' }}>{q.roomNumber || 'Room 101'}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>{q.department}</div>
+                  </td>
                   <td style={{ fontSize: '13px' }}>{q.assignedDoctor}</td>
-                  <td style={{ fontSize: '12px', color: '#7a8a9e', whiteSpace: 'nowrap' }}>{fmtDate(q.estimatedTime)}</td>
+                  <td style={{ fontSize: '12px', color: '#0f3b5e', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {fmtDate(q.estimatedTime)}
+                  </td>
                   <td><span className={`status-badge ${urgencyClass(q.urgency)}`}>{q.urgency}</span></td>
                   <td>
-                    <select value={q.status} onChange={(e) => handleStatus(q.token, e.target.value)}
-                      style={{ border: `2px solid ${statusColors[q.status] || '#d0dbe8'}`, borderRadius: '8px', padding: '4px 8px', fontWeight: 600, fontSize: '13px', color: statusColors[q.status] || '#1e2b3c', background: '#fff', cursor: 'pointer' }}>
-                      {['Scheduled','Waiting','In Progress','Completed','Cancelled'].map((s) => <option key={s} value={s}>{s}</option>)}
+                    <select
+                      value={q.status}
+                      onChange={(e) => handleStatus(q.token, e.target.value)}
+                      style={{
+                        border: `2px solid ${statusColors[q.status] || '#d0dbe8'}`,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        color: statusColors[q.status] || '#1e2b3c',
+                        background: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {['Scheduled', 'Waiting', 'In Progress', 'Completed', 'Cancelled'].map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
                     </select>
                   </td>
-                  <td><button className="admin-btn-danger" title="Remove" onClick={() => handleRemove(q.token)}><i className="fas fa-trash"></i></button></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '3px 8px', fontSize: '11px' }}
+                        disabled={idx === 0}
+                        onClick={() => handleMove(q.token, 'up')}
+                        title="Move Up in Queue (Earlier Slot)"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '3px 8px', fontSize: '11px' }}
+                        disabled={idx === queue.length - 1}
+                        onClick={() => handleMove(q.token, 'down')}
+                        title="Move Down in Queue (Later Slot)"
+                      >
+                        ▼
+                      </button>
+                      <button
+                        className="admin-btn-danger"
+                        style={{ padding: '3px 8px', fontSize: '11px', marginLeft: '4px' }}
+                        title="Remove from Queue & Cancel Appointment"
+                        onClick={() => handleRemove(q.token, q.patientName)}
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1072,14 +1850,15 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
   if (!adminUser) return <AdminLogin onLoginSuccess={handleLogin} />;
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard',  icon: 'fas fa-tachometer-alt' },
-    { id: 'documents', label: 'Documents',  icon: 'fas fa-file-medical', badge: stats?.pendingDocuments || null },
-    { id: 'users',     label: 'Users',      icon: 'fas fa-users' },
-    { id: 'financial', label: 'Financials', icon: 'fas fa-hand-holding-heart' },
-    { id: 'hospitals', label: 'Hospitals',  icon: 'fas fa-hospital' },
-    { id: 'queue',     label: 'Queue',      icon: 'fas fa-list-ol' },
-    { id: 'messages',  label: 'Messages',   icon: 'fas fa-inbox' },
-    { id: 'chat',      label: 'Live Chat',  icon: 'fas fa-comments' },
+    { id: 'dashboard',    label: 'Dashboard',    icon: 'fas fa-tachometer-alt' },
+    { id: 'appointments', label: 'Appointments', icon: 'fas fa-calendar-check', badge: stats?.pendingAppointments || null },
+    { id: 'queue',        label: 'Queue',        icon: 'fas fa-list-ol' },
+    { id: 'documents',    label: 'Documents',    icon: 'fas fa-file-medical',   badge: stats?.pendingDocuments || null },
+    { id: 'users',        label: 'Users',        icon: 'fas fa-users' },
+    { id: 'financial',    label: 'Financials',   icon: 'fas fa-hand-holding-heart' },
+    { id: 'hospitals',    label: 'Hospitals',    icon: 'fas fa-hospital' },
+    { id: 'messages',     label: 'Messages',     icon: 'fas fa-inbox' },
+    { id: 'chat',         label: 'Live Chat',    icon: 'fas fa-comments' },
   ];
 
   return (
@@ -1121,14 +1900,15 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
 
       {/* Content */}
       <div className="admin-content">
-        {activeTab === 'dashboard' && <DashboardTab stats={stats} log={log} />}
-        {activeTab === 'documents' && <DocumentsTab />}
-        {activeTab === 'users'     && <UsersTab />}
-        {activeTab === 'financial' && <FinancialTab />}
-        {activeTab === 'hospitals' && <HospitalsTab />}
-        {activeTab === 'queue'     && <QueueTab />}
-        {activeTab === 'messages'  && <MessagesTab />}
-        {activeTab === 'chat'      && <WhatsAppMessaging currentLang={currentLang} currentUser={adminUser} isAdmin={true} />}
+        {activeTab === 'dashboard'    && <DashboardTab stats={stats} log={log} />}
+        {activeTab === 'appointments' && <AppointmentsTab />}
+        {activeTab === 'queue'        && <QueueTab />}
+        {activeTab === 'documents'    && <DocumentsTab />}
+        {activeTab === 'users'        && <UsersTab />}
+        {activeTab === 'financial'    && <FinancialTab />}
+        {activeTab === 'hospitals'    && <HospitalsTab />}
+        {activeTab === 'messages'     && <MessagesTab />}
+        {activeTab === 'chat'         && <WhatsAppMessaging currentLang={currentLang} currentUser={adminUser} isAdmin={true} />}
       </div>
     </div>
   );

@@ -91,7 +91,7 @@ export default function FinancialAssistancePortal({ currentLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #d0dbe8' }}>
             <h4 style={{ color: '#078930', marginBottom: '4px' }}><i className="fas fa-check-circle"></i> Stage 1 — Medical Record Verification</h4>
-            <p style={{ fontSize: '13px', color: '#5e6f82', margin: 0 }}>Primary health center submits verified medical records to the receiving hospital.</p>
+            <p style={{ fontSize: '13px', color: '#5e6f82', margin: 0 }}>The clinical department at Zewditu Memorial Hospital inspects and verifies patient medical records.</p>
           </div>
           <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #d0dbe8' }}>
             <h4 style={{ color: '#078930', marginBottom: '4px' }}><i className="fas fa-user-check"></i> Stage 2 — Financial Need Verification</h4>

@@ -47,8 +47,30 @@ export const getAppointments = (params = {}) => {
   return handle(fetch(`${BASE}/appointments${q ? '?' + q : ''}`, { headers: headers() }));
 };
 
-export const createAppointment = (payload) =>
-  handle(fetch(`${BASE}/appointments`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }));
+export const createAppointment = (payload) => {
+  if (payload instanceof FormData) {
+    return handle(
+      fetch(`${BASE}/appointments`, {
+        method: 'POST',
+        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+        body: payload,
+      })
+    );
+  }
+  return handle(fetch(`${BASE}/appointments`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }));
+};
+
+export const uploadAdditionalAppointmentDocs = (appointmentId, file) => {
+  const formData = new FormData();
+  formData.append('supportingFile', file);
+  return handle(
+    fetch(`${BASE}/appointments/${appointmentId}/upload-additional-docs`, {
+      method: 'POST',
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+      body: formData,
+    })
+  );
+};
 
 // ─── QUEUE ─────────────────────────────────────────────────────────────────────
 export const getQueue = (params = {}) => {
