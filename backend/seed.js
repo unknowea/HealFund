@@ -72,6 +72,14 @@ const users = await User.insertMany([
     hospitalId: 'HOSP-001',
     hospitalName: 'Zewditu Memorial Hospital',
   },
+  {
+    name: 'HealFund Owner',
+    email: 'HealFund2006@gmail.com',
+    password: await bcrypt.hash('healFund@2026', 10),
+    role: 'admin',
+    hospitalId: 'HOSP-001',
+    hospitalName: 'Zewditu Memorial Hospital',
+  },
 ]);
 console.log(`✅ Seeded ${users.length} users`);
 
@@ -86,7 +94,7 @@ const queue = await Queue.insertMany([
     estimatedTime: new Date('2026-08-25T10:00:00Z'),
     status: 'Scheduled',
     urgency: 'High',
-    requiredDocuments: ['Medical Records', 'ID / QR Card', 'Lab Reports'],
+    requiredDocuments: ['Medical Records', 'Patient ID Card', 'Lab Reports'],
   },
   {
     token: 'C-024',
@@ -97,7 +105,7 @@ const queue = await Queue.insertMany([
     estimatedTime: new Date('2026-08-25T10:30:00Z'),
     status: 'Waiting',
     urgency: 'Medium',
-    requiredDocuments: ['Medical Records', 'ID / QR Card'],
+    requiredDocuments: ['Medical Records', 'Patient ID Card'],
   },
 ]);
 console.log(`✅ Seeded ${queue.length} queue items`);
@@ -203,7 +211,7 @@ console.log('\n🎉 Database seeded successfully!');
 console.log('\nDemo credentials:');
 console.log('  Patient  → you@example.com / password123');
 console.log('  Staff    → staff@zewditu.gov.et / hospital123');
-console.log('  Admin    → admin@zewditu.gov.et / admin123');
+console.log('  Admin    → admin@zewditu.gov.et / admin123 or admin1234');
 
 await mongoose.disconnect();
 process.exit(0);

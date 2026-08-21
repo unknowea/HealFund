@@ -48,11 +48,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
           <p style={{ color: '#5e6f82', fontSize: '14px', marginBottom: '20px' }}>
             {adminMode ? 'Sign in with your hospital staff credentials' : (isAm ? 'ወደ መለያዎ ይግቡ' : 'Sign in to your account')}
           </p>
+          {adminMode && (
+            <div style={{ color: '#2a6f4d', fontSize: '12px', marginBottom: '12px', background: '#edf7f0', padding: '8px 10px', borderRadius: '8px', lineHeight: '1.5' }}>
+              <strong>Owner:</strong> HealFund2006@gmail.com / healFund@2026<br />
+              <strong>Admin:</strong> admin@zewditu.gov.et / admin123 or admin1234
+            </div>
+          )}
           {error && <div style={{ color: '#da121a', fontSize: '13px', marginBottom: '12px', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px' }}>{error}</div>}
 
           <div className="form-group">
             <label>{isAm ? 'ኢሜይል' : 'Email'}</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={adminMode ? 'admin@zewditu.gov.et' : 'you@example.com'} required />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={adminMode ? 'Enter admin email' : 'you@example.com'} required />
           </div>
           <div className="form-group">
             <label>{isAm ? 'የይለፍ ቃል' : 'Password'}</label>

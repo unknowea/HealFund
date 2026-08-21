@@ -66,6 +66,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
@@ -81,7 +82,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
   const resetForm = () => {
     setEmail(''); setPassword(''); setConfirmPassword('');
     setName(''); setAge(''); setGender(''); setLocation('');
-    setError(''); setShowPassword(false); setShowConfirm(false);
+    setError(''); setShowPassword(false); setShowConfirm(false); setRememberMe(false);
   };
 
   const handleLoginSubmit = async (e) => {
@@ -90,8 +91,15 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
     setLoading(true);
     try {
       const data = await login(email, password);
-      localStorage.setItem('healfund_token', data.token);
-      localStorage.setItem('healfund_user', JSON.stringify(data.user));
+      localStorage.removeItem('healfund_token');
+      localStorage.removeItem('healfund_user');
+      sessionStorage.removeItem('healfund_token');
+      sessionStorage.removeItem('healfund_user');
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('healfund_token', data.token);
+      storage.setItem('healfund_user', JSON.stringify(data.user));
+      if (rememberMe) localStorage.setItem('healfund_remember_me', 'true');
+      else localStorage.removeItem('healfund_remember_me');
       onLoginSuccess(data.user);
       onClose();
     } catch (err) {
@@ -129,8 +137,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
     setLoading(true);
     try {
       const data = await signup({ name, email, password, age, gender, location });
-      localStorage.setItem('healfund_token', data.token);
-      localStorage.setItem('healfund_user', JSON.stringify(data.user));
+      sessionStorage.setItem('healfund_token', data.token);
+      sessionStorage.setItem('healfund_user', JSON.stringify(data.user));
       onLoginSuccess(data.user);
       onClose();
     } catch (err) {
@@ -171,6 +179,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
               <label>{isAm ? 'የይለፍ ቃል' : 'Password'}</label>
               <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} show={showPassword} setShow={setShowPassword} placeholder="••••••••" id="login-pwd" />
             </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', color: '#4a5a6e', fontSize: '14px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+              {isAm ? 'አስታውሰኝ' : 'Remember me'}
+            </label>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} disabled={loading}>
               {loading ? <><i className="fas fa-spinner fa-spin"></i> {isAm ? 'በመግባት ላይ...' : 'Signing in...'}</> : (isAm ? 'ይግቡ' : 'Sign In')}
@@ -250,7 +263,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
                   <option value="" disabled>{isAm ? 'ይምረጡ' : 'Choose'}</option>
                   <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
                   <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>
-                  <option value="Other">{isAm ? 'ሌላ' : 'Other'}</option>
                 </select>
               </div>
             </div>

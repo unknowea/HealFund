@@ -70,7 +70,7 @@ function AdminLogin({ onLoginSuccess }) {
           <div className="form-group">
             <label>Admin Email</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="superadmin@healfund.et" required autoComplete="username" />
+              placeholder="Enter admin email" required autoComplete="username" />
           </div>
           <div className="form-group">
             <label>Password</label>
@@ -80,13 +80,9 @@ function AdminLogin({ onLoginSuccess }) {
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
             {loading
               ? <><i className="fas fa-spinner fa-spin"></i> Authenticating…</>
-              : <><i className="fas fa-unlock-alt"></i> Sign In as Admin</>}
+              : <><i className="fas fa-unlock-alt"></i> Sign In</>}
           </button>
         </form>
-        <p className="admin-login-hint">
-          <i className="fas fa-info-circle"></i> Demo: <code>admin@zewditu.gov.et</code> / <code>admin123</code>
-          &nbsp;or&nbsp; <code>staff@zewditu.gov.et</code> / <code>hospital123</code>
-        </p>
       </div>
     </div>
   );
@@ -524,11 +520,11 @@ function DocumentsTab() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-              <button className="btn btn-success" style={{ flex: 1.2, padding: '10px' }} disabled={saving}
+              <button className="btn btn-success" style={{ flex: 1.2, padding: '10px', borderRadius: '30px' }} disabled={saving}
                 onClick={() => handleVerify('Verified')}>
                 {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check-circle"></i>} Verify & Accept to Waiting List
               </button>
-              <button className="btn" style={{ flex: 1, background: '#da121a', color: '#fff', padding: '10px' }} disabled={saving}
+              <button className="btn" style={{ flex: 1, background: '#da121a', color: '#fff', padding: '10px', borderRadius: '30px' }} disabled={saving}
                 onClick={() => handleVerify('Rejected')}>
                 {saving ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-times-circle"></i>} Reject Document
               </button>
@@ -1199,9 +1195,9 @@ function AppointmentsTab() {
                         <i className="fas fa-eye"></i>
                       </button>
                       <button
-                        className="btn btn-primary"
+                        className="btn btn-primary appointment-approve-action"
                         title="Approve & Assign Room"
-                        style={{ padding: '4px 8px', fontSize: '12px', background: '#078930' }}
+                        style={{ padding: '4px 8px', fontSize: '12px' }}
                         onClick={() => openApproveModal(a)}
                       >
                         <i className="fas fa-check"></i>
@@ -1291,7 +1287,7 @@ function AppointmentsTab() {
             )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" style={{ background: '#078930' }} onClick={() => openApproveModal(selectedAppt)}>
+              <button className="btn btn-primary appointment-approve-action" onClick={() => openApproveModal(selectedAppt)}>
                 <i className="fas fa-check"></i> Approve
               </button>
               <button className="btn btn-outline" style={{ color: '#e07b00', borderColor: '#e07b00' }} onClick={() => openRequestDocsModal(selectedAppt)}>
@@ -1381,8 +1377,8 @@ function AppointmentsTab() {
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button
-                  className="btn btn-primary"
-                  style={{ flex: 1, background: '#078930' }}
+                  className="btn btn-primary appointment-approve-action"
+                  style={{ flex: 1 }}
                   disabled={submitting}
                   onClick={submitApprove}
                 >
@@ -1587,7 +1583,7 @@ function QueueTab() {
       <div className="admin-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h3 style={{ color: '#0f3b5e', fontSize: '17px', fontWeight: 700, margin: 0 }}>
-            <i className="fas fa-list-ol" style={{ color: '#da121a' }}></i> Live Queue & Consultation Slot Management
+            <i className="fas fa-list-ol" style={{ color: '#da121a' }}></i> Queue & Consultation Slot Management
           </h3>
           <span style={{ fontSize: '12px', color: '#64748b' }}>
             ~10 minutes allocated per patient in sequence. Admin can reorder or prioritize high urgency patients.
@@ -1596,7 +1592,7 @@ function QueueTab() {
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             className="btn btn-primary"
-            style={{ background: '#da121a', fontSize: '13px', padding: '6px 14px' }}
+            style={{ background: '#da121a', fontSize: '13px', padding: '6px 14px', borderRadius: '30px' }}
             onClick={handlePrioritizeUrgency}
             title="Auto-sort High/Emergency urgency patients to the front"
           >
@@ -1779,7 +1775,7 @@ function MessagesTab() {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '20px', alignItems: 'start' }}>
       <div className="card" style={{ padding: '18px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-          <h3 style={{ color: '#0f3b5e', fontSize: '16px', margin: 0 }}><i className="fas fa-inbox"></i> Inbox</h3>
+          <h3 style={{ color: '#0f3b5e', fontSize: '16px', margin: 0 }}><i className="fas fa-inbox"></i> Messages</h3>
           <span className="admin-count-badge">{unread} unread</span>
         </div>
         {loading ? <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i></div> : (
@@ -1913,8 +1909,6 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
     { id: 'users',        label: 'Users',        icon: 'fas fa-users' },
     { id: 'financial',    label: 'Financials',   icon: 'fas fa-hand-holding-heart' },
     { id: 'hospitals',    label: 'Hospitals',    icon: 'fas fa-hospital' },
-    { id: 'messages',     label: 'Messages',     icon: 'fas fa-inbox' },
-    { id: 'chat',         label: 'Live Chat',    icon: 'fas fa-comments' },
   ];
 
   return (

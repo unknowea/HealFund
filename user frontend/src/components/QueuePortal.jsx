@@ -81,7 +81,7 @@ export default function QueuePortal({ currentLang, currentUser }) {
               <div style={{ marginTop: '20px', background: '#fafcff', padding: '16px', borderRadius: '12px', border: '1px solid #e2eaf3' }}>
                 <h5 style={{ color: '#0f3b5e', marginBottom: '8px' }}><i className="fas fa-file-invoice"></i> Required Documents:</h5>
                 <ul style={{ paddingLeft: '20px', fontSize: '14px', color: '#4a5a6e' }}>
-                  {(activeTicket.requiredDocuments || ['Medical Records', 'ID / QR Card', 'Lab Reports']).map((doc, i) => <li key={i}>{doc}</li>)}
+                  {(activeTicket.requiredDocuments || ['Medical Records', 'Patient ID Card', 'Lab Reports']).map((doc, i) => <li key={i}>{doc}</li>)}
                 </ul>
               </div>
             </div>

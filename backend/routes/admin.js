@@ -130,7 +130,7 @@ router.put('/documents/:id/verify', protect, requireRole('admin', 'hospital_offi
           estimatedTime: new Date(Date.now() + 86400000 * 2),
           status: 'Waiting',
           urgency: targetUrgency,
-          requiredDocuments: [doc.originalName, 'ID / QR Card'],
+          requiredDocuments: [doc.originalName, 'Patient ID Card'],
         });
       } else {
         generatedToken = queueEntry.token;

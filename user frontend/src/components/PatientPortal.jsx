@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+import React, { useState, useEffect } from 'react';
 import { getAppointments, createAppointment, uploadFile, sendMessage, getProfile, updateProfile, getPublicStats } from '../api.js';
 
 export default function PatientPortal({
@@ -17,8 +16,98 @@ export default function PatientPortal({
   const [fileProgress, setFileProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [modalMessage, setModalMessage] = useState(null);
-  const canvasRef = useRef(null);
+  const [heroSlide, setHeroSlide] = useState(0);
   const [homeStats, setHomeStats] = useState({ patients: '…', verification: '…', centers: '…' });
+  const isAm = currentLang === 'am';
+
+  const heroSlides = [
+    {
+      image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ጤና ተደራሽነት ለሁሉም' : 'Healthcare access for everyone',
+      text: isAm ? 'ሂል ፈንድ ታካሚዎችን ከተረጋገጠ እና አስተማማኝ ህክምና ጋር ያገናኛል።' : 'HealFund connects patients with trusted care, verified records, and the support they need to move forward.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ከተረጋገጠ መረጃ ወደ ተሻለ እንክብካቤ' : 'From verified records to better care',
+      text: isAm ? 'የህክምና ሰነዶችን በዲጂታል መንገድ ያስተዳድሩ እና ቀጠሮዎን በቀላሉ ይከታተሉ።' : 'Manage medical records digitally, request appointments, and follow every step with confidence.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ማህበረሰቦችን በጤና ያጠናክሩ' : 'Stronger communities through care',
+      text: isAm ? 'የተራ አስተዳደር፣ የገንዘብ ድጋፍ እና የሆስፒታል ግንኙነትን በአንድ ቦታ ያግኙ።' : 'Bring appointments, queue tracking, hospital coordination, and financial assistance together in one place.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1538108149393-fbbd81895977?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'የታካሚ ድጋፍ እና የመርሃ ግብር ክትትል' : 'Support that follows each patient',
+      text: isAm ? 'የህክምና ተከታታይ እንቅስቃሴዎችን በማየት እንዲቀጥሉ እንረዳዎታለን።' : 'Stay on track with follow-up care, reminders, and support throughout every stage of treatment.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ከሞተር ማርክ ወደ እንክብካቤ እና ህክምና' : 'Care teams working together',
+      text: isAm ? 'ከሆስፒታል ቡድኖች፣ ታካሚዎች እና የገንዘብ እርዳታ ወኪሎች ጋር በአንድ ተስማሚ ሥርዓት ውስጥ ይሰራል።' : 'Connect patients, hospital teams, and financial support partners in one coordinated care journey.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'በተረጋገጠ ሁኔታ ወደ የተሻለ ጤና' : 'A healthier future, made easier',
+      text: isAm ? 'እንዲሁ ማረጋገጫ፣ ማስተዳደር እና ቀጠሮ አገልግሎት በአንድ እንዲቀላቀል እንደሚያስችል ያስተዋውቃሉ።' : 'Access trusted verification, organized appointments, and compassionate support for a healthier tomorrow.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'የህክምና ሰነዶችን በአስተማማኝ መንገድ ያስተዳድሩ' : 'Trusted records, better decisions',
+      text: isAm ? 'ለሁሉም ታካሚዎች የሰነዶች እንዲከተሉ በእውነተኛ ዘዴ እንረዳዎታለን።' : 'Keep every patient record organized and ready so care teams can act quickly and confidently.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ጤና ከመጀመሪያ እስከ መጨረሻ' : 'Care from start to finish',
+      text: isAm ? 'ከመጀመሪያው ምዝገባ እስከ የምርመራ ክትትል ድረስ የሚያስፈልገውን ድጋፍ እንሰጣለን።' : 'From the first registration to the final follow-up, we help patients stay connected to care.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1527613426441-4da17471b8dd?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'የታካሚ ተሞክሮ የሚታይ እና የሚተዳደር' : 'Patient experience made simple',
+      text: isAm ? 'መረጃማለት ብቻ ሳይሆን የህክምና ተሞክሮ በማመቻቸት እንረዳዎታለን።' : 'Simplify the patient journey with easier access, communication, and support at every step.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1542736667-069246bdbc6d?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'የሆስፒታል ቡድን ተያያዥነት' : 'Connected hospital teams',
+      text: isAm ? 'የአስተዳደር እና የህክምና ቡድኖች በግልጽ እና በተስማሚ መንገድ ይሰራሉ።' : 'Coordinate care more clearly across clinical teams, admin staff, and support partners.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ከእውቀት ወደ እድገት' : 'Knowledge that drives progress',
+      text: isAm ? 'የህክምና እውቀትን ወደ ማሰተካከያ እና የጤና እድገት እንደሚቀይር እንደሚያስተምሩ እናስተዋውቃለን።' : 'Turn health information into action so communities can move toward better outcomes.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'የህክምና አስተዳደር በመስመር ላይ' : 'Healthcare coordination in one place',
+      text: isAm ? 'ከቀጠሮ እስከ የእርዳታ አገልግሎት መረጃዎን በአንድ ቦታ ያስተዳድሩ።' : 'Organize appointments, care updates, and support services in a single, simpler flow.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ለእያንዳንዱ ታካሚ ግልጽ እና ምቹ አገልግሎት' : 'Clear care for every patient',
+      text: isAm ? 'ታካሚዎች የህክምና እድሎችን በፍጥነት እና በደህና ሁኔታ ሊያገኙ ይችላሉ።' : 'Patients can move through care with clearer communication, quicker answers, and stronger support.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ታካሚዎችን ከእውነተኛ የጤና ድጋፍ ጋር ማገናኘት' : 'Connecting patients to real support',
+      text: isAm ? 'የቀጠሮ ማስተዳደር፣ የድጋፍ እቅድ እና የህክምና ክትትል በአንድ እንዲሰራ እንረዳዎታለን።' : 'Help people receive the care and guidance they need through one connected system.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ሀብታም ጤና ለማለፍ የሚያስችል መንገድ' : 'A pathway to better health',
+      text: isAm ? 'የህክምና ግንኙነትን በእርጋታ እና በቀላሉ ያግኙ።' : 'Build healthier routines and stronger medical access with guidance from a trusted platform.',
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&w=1800&q=85',
+      title: isAm ? 'ከህክምና አስተዳደር ወደ ህመም መቀነስ' : 'From planning to recovery',
+      text: isAm ? 'የታካሚዎችን ጉዞ እየተከተልን በተሳካ ሁኔታ እድገትን እንረዳለን።' : 'Follow every step of the journey so patients can move from uncertainty to confident recovery.',
+    },
+  ];
+
+  useEffect(() => {
+    if (activeTab !== 'home') return undefined;
+    const timer = window.setInterval(() => setHeroSlide((slide) => (slide + 1) % heroSlides.length), 6000);
+    return () => window.clearInterval(timer);
+  }, [activeTab, heroSlides.length]);
 
   // Appointment booking form state
   const [isForSelf, setIsForSelf] = useState(true);
@@ -53,8 +142,6 @@ export default function PatientPortal({
     registered: '', gender: '', age: '',
     location: '', status: 'Pending',
   };
-
-  const isAm = currentLang === 'am';
 
   // Fetch public stats for home page
   useEffect(() => {
@@ -95,9 +182,9 @@ export default function PatientPortal({
     setProfileMsg('');
     try {
       const data = await updateProfile({ name: editName, age: editAge, gender: editGender, location: editLocation, profilePhoto: editPhoto });
-      // Update localStorage with new user data
       const updated = { ...defaultUser, ...data.user };
-      localStorage.setItem('healfund_user', JSON.stringify(updated));
+      const storage = localStorage.getItem('healfund_remember_me') === 'true' ? localStorage : sessionStorage;
+      storage.setItem('healfund_user', JSON.stringify(updated));
       setProfileMsg('✅ Profile updated successfully!');
       setTimeout(() => { setIsEditingProfile(false); setProfileMsg(''); window.location.reload(); }, 1500);
     } catch (err) {
@@ -123,28 +210,6 @@ export default function PatientPortal({
       console.warn('Could not fetch appointments:', err.message);
     } finally {
       setApptLoading(false);
-    }
-  };
-
-  // Generate QR Code
-  useEffect(() => {
-    if (canvasRef.current && activeTab === 'dashboard') {
-      const qrData =
-        `Patient: ${defaultUser.name}\nID: ${defaultUser.patientId}\n` +
-        `Age: ${defaultUser.age}\nGender: ${defaultUser.gender}\n` +
-        `Location: ${defaultUser.location}\nHospital: Zewditu Memorial Hospital`;
-      QRCode.toCanvas(canvasRef.current, qrData, {
-        width: 150, color: { dark: '#078930', light: '#ffffff' },
-      }, (err) => { if (err) console.error('QR error:', err); });
-    }
-  }, [activeTab, defaultUser]);
-
-  const handleDownloadQr = () => {
-    if (canvasRef.current) {
-      const link = document.createElement('a');
-      link.download = `QR_${defaultUser.patientId}.png`;
-      link.href = canvasRef.current.toDataURL('image/png');
-      link.click();
     }
   };
 
@@ -267,17 +332,28 @@ export default function PatientPortal({
     <div>
       {/* HOME */}
       {activeTab === 'home' && (
-        <div className="hero">
-          <i className="fas fa-heartbeat"></i>
-          <h1>{isAm ? 'እንኳን ወደ ' : 'Welcome to '}<span>HealFund</span></h1>
-          <p>
-            {isAm
-              ? 'ለእያንዳንዱ ኢትዮጵያዊ የጤና አገልግሎት ተደራሽነትን ማጎልበት።'
-              : 'Empowering health access for every Ethiopian. HealFund bridges the gap between vulnerable communities and essential healthcare.'}
-          </p>
+        <div className="home-page">
+          <section className="hero hero-carousel" style={{ backgroundImage: `url(${heroSlides[heroSlide].image})` }}>
+            <div className="hero-overlay"></div>
+            <div className="hero-content">
+              <span className="hero-eyebrow"><i className="fas fa-heartbeat"></i> HealFund Healthcare Access</span>
+              <h1>{heroSlides[heroSlide].title}</h1>
+              <p>{heroSlides[heroSlide].text}</p>
+              <div className="hero-actions">
+                <button className="btn btn-primary" onClick={() => setActiveModule(currentUser ? 'appointments' : 'about')}><i className="fas fa-arrow-right"></i> {currentUser ? 'Book an Appointment' : 'Discover HealFund'}</button>
+                <button className="btn hero-secondary-action" onClick={() => setActiveModule('contact')}><i className="fas fa-envelope"></i> Contact Support</button>
+              </div>
+            </div>
+            <button className="hero-arrow hero-arrow-prev" aria-label="Previous image" onClick={() => setHeroSlide((heroSlide - 1 + heroSlides.length) % heroSlides.length)}><i className="fas fa-chevron-left"></i></button>
+            <button className="hero-arrow hero-arrow-next" aria-label="Next image" onClick={() => setHeroSlide((heroSlide + 1) % heroSlides.length)}><i className="fas fa-chevron-right"></i></button>
+            <div className="hero-dots" aria-label="Hero image navigation">
+              {heroSlides.map((slide, index) => <button key={slide.image} className={index === heroSlide ? 'active' : ''} aria-label={`Show image ${index + 1}`} onClick={() => setHeroSlide(index)} />)}
+            </div>
+          </section>
+          <p className="home-intro">{isAm ? 'ከመጀመሪያ ማረጋገጫ እስከ የሆስፒታል ክትትል፣ የHealFund መድረክ ታካሚዎችን፣ ቤተሰቦችን እና የጤና ባለሙያዎችን በአንድ ያገናኛል።' : 'From first verification to hospital follow-up, HealFund brings patients, families, and care teams together in one trusted place.'}</p>
           <div className="features-grid">
             <div className="feature-card"><i className="fas fa-file-medical-alt"></i><h4>{isAm ? 'የተረጋገጡ ሰነዶች' : 'Verified Medical Records'}</h4><p>{isAm ? 'ሰነዶችዎን ያረጋግጡ።' : 'Securely verify your health documents.'}</p></div>
-            <div className="feature-card"><i className="fas fa-calendar-check"></i><h4>{isAm ? 'ቀጥታ ቀጠሮ' : 'Direct Booking'}</h4><p>{isAm ? 'በዘውዲቱ ሆስፒታል ቀጥታ ቀጠሮ ይያዙ።' : 'Book appointments directly at Zewditu Memorial Hospital.'}</p></div>
+            <div className="feature-card"><i className="fas fa-calendar-check"></i><h4>{isAm ? 'ቀጥታ ቀጠሮ' : 'Direct Booking'}</h4><p>{isAm ? 'በዘውዲቱ ሆስፒታል ቀጠሮ ይያዙ።' : 'Book appointments directly at Zewditu Memorial Hospital.'}</p></div>
             <div className="feature-card"><i className="fas fa-mobile-alt"></i><h4>{isAm ? 'ኦፍላይን መዳረሻ' : 'Offline & Phone Access'}</h4><p>{isAm ? '*677# ወይም የድምፅ ጥሪ ይጠቀሙ።' : 'Use USSD (*677#) or call our support line.'}</p></div>
           </div>
           <div className="stats-row">
@@ -307,7 +383,6 @@ export default function PatientPortal({
             <div className="info-row"><span className="label"><i className="fas fa-venus-mars"></i> {isAm ? 'ጾታ' : 'Gender'}</span><span className="value">{defaultUser.gender}</span></div>
             <div className="info-row"><span className="label"><i className="fas fa-calendar-alt"></i> {isAm ? 'ዕድሜ' : 'Age'}</span><span className="value">{defaultUser.age}</span></div>
             <div className="info-row"><span className="label"><i className="fas fa-map-marker-alt"></i> {isAm ? 'ቦታ' : 'Location'}</span><span className="value">{defaultUser.location}</span></div>
-            {/* Item 1: Only show File and Hospital rows if user has appointments (not brand new) */}
             {appointmentsList.length > 0 && (
               <>
                 <div className="info-row">
@@ -321,13 +396,6 @@ export default function PatientPortal({
             <button className="btn btn-outline" onClick={openProfileEdit} style={{ width: '100%', marginTop: '16px', fontSize: '13px' }}>
               <i className="fas fa-edit"></i> {isAm ? 'መለያ አርትዕ' : 'Edit Profile'}
             </button>
-            <div className="qr-section">
-              <i className="fas fa-qrcode"></i>
-              <p><strong>{isAm ? 'የእርስዎ QR ኮድ' : 'Your QR Code'}</strong><br /><span>{isAm ? 'ሙሉ የታካሚ መረጃ' : 'Contains your full patient profile'}</span></p>
-              <div className="qr-box"><canvas ref={canvasRef}></canvas></div>
-              <br />
-              <button className="btn-outline" onClick={handleDownloadQr}><i className="fas fa-download"></i> {isAm ? 'QR አውርድ' : 'Download QR'}</button>
-            </div>
           </aside>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -551,8 +619,14 @@ export default function PatientPortal({
                         <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
                           <i className="fas fa-paperclip"></i> {isAm ? 'የተያያዙ ሰነዶች' : 'Attached Documents'}:{' '}
                           {apt.supportingFiles.map((f, i) => (
-                            <span key={i} style={{ background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px', marginRight: '6px', display: 'inline-block' }}>
-                              {f.originalName} ({f.size || 'Attached'})
+                            <span key={i} style={{ background: '#e2e8f0', padding: '6px 8px', borderRadius: '6px', marginRight: '6px', marginBottom: '6px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{f.originalName} ({f.size || 'Attached'})</span>
+                              <a href={`/api/appointments/${apt.id}/files/${encodeURIComponent(f.id)}`} target="_blank" rel="noreferrer" title="View file" style={{ color: '#0f3b5e' }}>
+                                <i className="fas fa-eye"></i>
+                              </a>
+                              <a href={`/api/appointments/${apt.id}/files/${encodeURIComponent(f.id)}?download=true`} title="Download file" style={{ color: '#078930' }}>
+                                <i className="fas fa-download"></i>
+                              </a>
                             </span>
                           ))}
                         </div>
@@ -657,7 +731,6 @@ export default function PatientPortal({
                         <option value="">Choose</option>
                         <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
                         <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>
-                        <option value="Other">{isAm ? 'ሌላ' : 'Other'}</option>
                       </select>
                     </div>
                   </div>
@@ -895,18 +968,6 @@ export default function PatientPortal({
               <div className="channel-card"><i className="fas fa-user-md"></i><h4>{isAm ? 'የመስክ ወኪል' : 'Field Agent'}</h4><p>{isAm ? 'ወደ እርስዎ እንመጣለን' : 'We come to you'}</p></div>
               <div className="channel-card"><i className="fas fa-hospital"></i><h4>{isAm ? 'ሆስፒታል' : 'Health Center'}</h4><p>Visit Zewditu Hospital</p></div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal */}
-      {modalMessage && (
-        <div className="modal-overlay">
-          <div className="modal-box" style={{ textAlign: 'center' }}>
-            <i className="fas fa-check-circle" style={{ fontSize: '48px', color: '#28a745', marginBottom: '12px' }}></i>
-            <h3 style={{ fontSize: '22px', marginBottom: '8px' }}>Action Confirmed</h3>
-            <p style={{ color: '#4a5a6e', marginBottom: '20px' }}>{modalMessage}</p>
-            <button className="btn btn-primary" onClick={() => setModalMessage(null)}>{isAm ? 'እሺ ተረድቻለሁ' : 'OK, got it'}</button>
           </div>
         </div>
       )}

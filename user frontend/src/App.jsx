@@ -15,18 +15,34 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  // Restore session from localStorage on mount
+  // Restore only explicitly remembered sessions, or the current browser session.
   useEffect(() => {
-    const savedUser = localStorage.getItem('healfund_user');
-    const savedToken = localStorage.getItem('healfund_token');
+    const isRemembered = localStorage.getItem('healfund_remember_me') === 'true';
+    const rememberedUser = isRemembered ? localStorage.getItem('healfund_user') : null;
+    const rememberedToken = isRemembered ? localStorage.getItem('healfund_token') : null;
+    const sessionUser = sessionStorage.getItem('healfund_user');
+    const sessionToken = sessionStorage.getItem('healfund_token');
+    const savedUser = rememberedUser || sessionUser;
+    const savedToken = rememberedToken || sessionToken;
     if (savedUser && savedToken) {
-      setCurrentUser(JSON.parse(savedUser));
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem('healfund_token');
+        localStorage.removeItem('healfund_user');
+        localStorage.removeItem('healfund_remember_me');
+        sessionStorage.removeItem('healfund_token');
+        sessionStorage.removeItem('healfund_user');
+      }
     }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('healfund_token');
     localStorage.removeItem('healfund_user');
+    localStorage.removeItem('healfund_remember_me');
+    sessionStorage.removeItem('healfund_token');
+    sessionStorage.removeItem('healfund_user');
     setCurrentUser(null);
     setActiveModule('home');
   };
@@ -112,12 +128,35 @@ export default function App() {
       />
 
       <footer className="footer-note">
-        <i className="fas fa-heart"></i>{' '}
-        <span>
-          {currentLang === 'am'
-            ? 'ሂል ፈንድ — ለኢትዮጵያ ሁሉ የጤና ተደራሽነት ማጎልበት።'
-            : 'HealFund — Empowering health access for every Ethiopian.'}
-        </span>
+        <div className="footer-grid">
+          <div className="footer-brand">
+            <strong><i className="fas fa-heartbeat"></i> HealFund</strong>
+            <p>{currentLang === 'am' ? 'ታካሚዎችን እና ሆስፒታሎችን በተረጋገጠ የጤና አገልግሎት ማገናኘት።' : 'Connecting patients and hospitals through verified care, appointments, and financial support.'}</p>
+          </div>
+          <div>
+            <h4>{currentLang === 'am' ? 'ፈጣን አገናኞች' : 'Quick Links'}</h4>
+            <button onClick={() => setActiveModule('home')}>Home</button>
+            <button onClick={() => setActiveModule('financial')}>Financial Aid</button>
+            <button onClick={() => setActiveModule('about')}>About Us</button>
+            <button onClick={() => setActiveModule('contact')}>Contact Us</button>
+          </div>
+          <div>
+            <h4>{currentLang === 'am' ? 'አገልግሎቶች' : 'Services'}</h4>
+            <button onClick={() => setActiveModule('appointments')}>Appointments</button>
+            <button onClick={() => setActiveModule('files')}>Medical Files</button>
+            <button onClick={() => setActiveModule('queue')}>Patient Queue</button>
+            <button onClick={() => setActiveModule('financial')}>Financial Support</button>
+          </div>
+          <div className="footer-contact">
+            <h4>{currentLang === 'am' ? 'ያግኙን' : 'Contact'}</h4>
+            <p>Zewditu Memorial Hospital</p>
+            <p>Lideta / Kirkos Sub-City, Addis Ababa</p>
+            <p>HealFundET@gmail.com</p>
+            <p>+251-11-551-8085</p>
+            <p>Emergency Triage: 24/7</p>
+          </div>
+        </div>
+        <div className="footer-bottom">© 2026 HealFund. All rights reserved.</div>
       </footer>
     </div>
   );

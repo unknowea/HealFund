@@ -48,7 +48,7 @@ export const dataStore = {
       estimatedTime: '2026-08-25 10:00 AM',
       status: 'Scheduled',
       urgency: 'High',
-      requiredDocuments: ['Medical Records', 'ID / QR Card', 'Lab Reports'],
+      requiredDocuments: ['Medical Records', 'Patient ID Card', 'Lab Reports'],
     },
     {
       token: 'C-024',
@@ -59,7 +59,7 @@ export const dataStore = {
       estimatedTime: '2026-08-25 10:30 AM',
       status: 'Waiting',
       urgency: 'Medium',
-      requiredDocuments: ['Medical Records', 'ID / QR Card'],
+      requiredDocuments: ['Medical Records', 'Patient ID Card'],
     },
   ],
 
@@ -124,10 +124,10 @@ export const dataStore = {
       hospitalName: 'Zewditu Memorial Hospital',
       role: 'Hospital Officer',
     },
-    'admin@zewditu.gov.et': {
-      name: 'Dr. M. Worku',
-      email: 'admin@zewditu.gov.et',
-      password: 'admin123',
+    'HealFund2006@gmail.com': {
+      name: 'HealFund Owner',
+      email: 'HealFund2006@gmail.com',
+      password: 'healFund@2026',
       hospitalId: 'HOSP-001',
       hospitalName: 'Zewditu Memorial Hospital',
       role: 'Head of Department',

@@ -120,10 +120,10 @@ export default function Messaging({ currentLang, currentUser, isAdmin = false })
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Live Chat */}
+        {/* Chat */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ background: '#078930', padding: '16px', color: '#fff' }}>
-            <h3 style={{ margin: 0, fontSize: '16px' }}><i className="fas fa-comment-dots"></i> {isAm ? 'ቀጥታ ውይይት' : 'Live Chat'}</h3>
+            <h3 style={{ margin: 0, fontSize: '16px' }}><i className="fas fa-comment-dots"></i> {isAm ? 'ቀጥታ ውይይት' : 'Chat'}</h3>
           </div>
 
           <div style={{ display: 'flex', height: '400px' }}>

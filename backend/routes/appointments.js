@@ -68,6 +68,24 @@ const findApptById = async (id) => {
   return appt;
 };
 
+// GET /api/appointments/:id/files/:fileId — view or download an appointment file
+router.get('/:id/files/:fileId', async (req, res) => {
+  try {
+    const appointment = await findApptById(req.params.id);
+    const file = appointment?.supportingFiles?.find((item) => item.id === req.params.fileId);
+    if (!file) return res.status(404).json({ success: false, message: 'Appointment file not found' });
+
+    const filePath = path.join(uploadDir, file.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File is no longer available' });
+
+    const disposition = req.query.download === 'true' ? 'attachment' : 'inline';
+    res.setHeader('Content-Disposition', `${disposition}; filename="${path.basename(file.originalName)}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/appointments — patients see only their own; admins can filter by patientId
 router.get('/', protect, async (req, res) => {
   try {
@@ -263,7 +281,7 @@ router.put('/:id/approve', async (req, res) => {
         durationMinutes: 10,
         status: 'Scheduled',
         estimatedTime: new Date(Date.now() + 86400000),
-        requiredDocuments: (appt.supportingFiles || []).map((f) => f.originalName).concat(['Patient ID / QR Card']),
+        requiredDocuments: (appt.supportingFiles || []).map((f) => f.originalName).concat(['Patient ID Card']),
       });
     } else {
       queueEntry.token = queueToken;

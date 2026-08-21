@@ -58,13 +58,6 @@ export default function Navbar({
                 <span style={{ fontSize: '11px', color: '#5e6f82' }}>{currentUser.role}</span>
               )}
             </div>
-            <button
-              onClick={onLogout}
-              style={{ background: 'none', border: 'none', color: '#da121a', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
-              title="Logout"
-            >
-              <i className="fas fa-sign-out-alt"></i>
-            </button>
           </div>
         )}
       </div>

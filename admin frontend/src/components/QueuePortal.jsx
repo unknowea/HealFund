@@ -62,7 +62,7 @@ export default function QueuePortal({ currentLang, currentUser }) {
               <i className="fas fa-list-ol"></i> {isAm ? 'የዘውዲቱ ሆስፒታል ተራ አስተዳደር' : 'Zewditu Hospital Queue Management'}
             </h2>
             <p style={{ color: '#d4f0e0', fontSize: '14px', maxWidth: '700px' }}>
-              {isAm ? 'ታካሚዎችን ይቀበሉ፣ ሁኔታ ይቀይሩ እና ተራ ያስተዳድሩ።' : 'Monitor patient flow, update statuses, and manage the live clinic queue.'}
+              {isAm ? 'ታካሚዎችን ይቀበሉ፣ ሁኔታ ይቀይሩ እና ተራ ያስተዳድሩ።' : 'Monitor patient flow, update statuses, and manage the clinic queue.'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -153,7 +153,7 @@ export default function QueuePortal({ currentLang, currentUser }) {
         {/* Queue Directory */}
         <div className="card">
           <div className="card-header">
-            <h3><i className="fas fa-stream"></i> Live Patient Queue</h3>
+            <h3><i className="fas fa-stream"></i> Patient Queue</h3>
             <span className="badge" style={{ background: '#078930', padding: '4px 12px' }}>{filteredQueue.length} in queue</span>
           </div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>

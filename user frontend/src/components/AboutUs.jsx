@@ -49,12 +49,12 @@ export default function AboutUs({ currentLang }) {
         </div>
         <div className="features-grid" style={{ marginTop: '16px' }}>
           <div className="feature-card">
-            <i className="fas fa-qrcode" style={{ fontSize: '32px', color: '#078930', marginBottom: '12px' }}></i>
-            <h4>{isAm ? 'ዲጂታል የታካሚ መታወቂያ እና QR' : 'Digital Patient ID & QR'}</h4>
+            <i className="fas fa-id-card" style={{ fontSize: '32px', color: '#078930', marginBottom: '12px' }}></i>
+            <h4>{isAm ? 'ዲጂታል የታካሚ መታወቂያ' : 'Digital Patient ID'}</h4>
             <p style={{ fontSize: '13.5px', color: '#4a5a6e' }}>
               {isAm
-                ? 'እያንዳንዱ ታካሚ ፈጣን የህክምና ታሪክ መዳረሻ የሚሰጥ ልዩ የQR ኮድ እና ዲጂታል መታወቂያ ይሰጠዋል።'
-                : 'Every registered patient receives a unique HealFund QR card containing verified medical summaries and registration records.'}
+                ? 'እያንዳንዱ ታካሚ የተረጋገጠ የህክምና መረጃ የያዘ ዲጂታል መታወቂያ ይሰጠዋል።'
+                : 'Every registered patient receives a digital HealFund ID containing verified medical summaries and registration records.'}
             </p>
           </div>
 

@@ -1,11 +1,11 @@
 /**
  * HealFund API utility — all fetch calls go through here.
- * Automatically attaches the JWT token stored in localStorage.
+ * Automatically attaches the JWT token stored for the current session.
  */
 
 const BASE = '/api';
 
-const getToken = () => localStorage.getItem('healfund_token');
+const getToken = () => localStorage.getItem('healfund_token') || sessionStorage.getItem('healfund_token');
 
 const headers = (extra = {}) => ({
   'Content-Type': 'application/json',
