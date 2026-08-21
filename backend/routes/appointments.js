@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import Appointment from '../models/Appointment.js';
 import Queue from '../models/Queue.js';
 import PatientDocument from '../models/PatientDocument.js';
+import { protect, requireRole } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,14 +68,31 @@ const findApptById = async (id) => {
   return appt;
 };
 
-// GET /api/appointments — fetch appointments with optional filtering & search
-router.get('/', async (req, res) => {
+// GET /api/appointments — patients see only their own; admins can filter by patientId
+router.get('/', protect, async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'hospital_officer';
     const { patientId, status, search } = req.query;
+
     let filter = {};
 
-    if (patientId) {
-      filter.$or = [{ patientId }, { bookedByUserId: patientId }];
+    if (isAdmin) {
+      // Admin can filter by any patientId or see all
+      if (patientId) {
+        filter.$or = [{ patientId }, { bookedByUserId: patientId }];
+      }
+    } else {
+      // Patients ONLY see their own appointments — use their DB _id AND their patientId
+      const userId = req.user.id; // MongoDB _id as string
+      // Load patient's patientId from DB to match both fields
+      const { default: User } = await import('../models/User.js');
+      const user = await User.findById(userId).select('patientId').lean();
+      const pid = user?.patientId;
+
+      filter.$or = [
+        { bookedByUserId: userId },
+        ...(pid ? [{ patientId: pid }, { bookedByUserId: pid }] : []),
+      ];
     }
 
     if (status && status !== 'All') {
@@ -117,7 +135,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/appointments — create new appointment (supports multiple supporting files & diverse formats)
-router.post('/', (req, res, next) => {
+router.post('/', protect, (req, res, next) => {
   // Run multer and handle file-filter errors gracefully without aborting the whole request
   upload.any()(req, res, (err) => {
     if (err) {
@@ -133,7 +151,6 @@ router.post('/', (req, res, next) => {
 
     const {
       patientId,
-      bookedByUserId,
       isForSelf,
       patientName,
       patientAge,
@@ -144,6 +161,9 @@ router.post('/', (req, res, next) => {
       preferredDepartment,
       patientPhone,
     } = req.body;
+
+    // Always use the authenticated user's ID as bookedByUserId — prevents spoofing
+    const bookedByUserId = req.user.id;
 
     const isSelf = isForSelf === true || isForSelf === 'true';
     const effectivePatientId = patientId || `HF-${String(Math.floor(1000 + Math.random() * 9000))}`;
