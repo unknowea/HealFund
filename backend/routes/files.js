@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, '../../uploads');
+const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -24,10 +24,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
+  const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx', '.txt'];
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.includes(ext)) cb(null, true);
-  else cb(new Error('Only PDF, JPG, and PNG files are allowed'), false);
+  else cb(new Error('Only PDF, JPG, PNG, DOCX, and TXT files are allowed'), false);
 };
 
 const upload = multer({

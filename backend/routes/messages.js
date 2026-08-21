@@ -14,14 +14,23 @@ router.get('/', protect, requireRole('admin', 'hospital_officer'), async (req, r
   }
 });
 
-// POST /api/messages — public (contact form / patient help request)
+// POST /api/messages — public (contact form / patient help request / admin-messages)
 router.post('/', async (req, res) => {
   try {
-    const { name, contact, category, message } = req.body;
-    if (!name || !message)
+    const { name, contact, category, message, content, userName, userEmail, patientName, patientEmail } = req.body;
+    const authorName = name || userName || patientName || 'Patient';
+    const authorMsg = message || content;
+    const authorContact = contact || userEmail || patientEmail || '';
+
+    if (!authorName || !authorMsg)
       return res.status(400).json({ success: false, message: 'Name and message are required' });
 
-    const newMessage = await Message.create({ name, contact, category, message });
+    const newMessage = await Message.create({
+      name: authorName,
+      contact: authorContact,
+      category: category || 'General Inquiry',
+      message: authorMsg,
+    });
     res.status(201).json({
       success: true,
       message: 'Message received successfully',

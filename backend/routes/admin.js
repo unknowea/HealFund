@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 import { protect, requireRole } from '../middleware/auth.js';
 import User from '../models/User.js';
@@ -13,7 +14,7 @@ import Queue from '../models/Queue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, '../../uploads');
+const uploadDir = path.join(__dirname, '../uploads');
 
 const router = express.Router();
 
@@ -159,14 +160,19 @@ router.put('/documents/:id/verify', protect, requireRole('admin', 'hospital_offi
 // GET /api/admin/documents/:id/file
 router.get('/documents/:id/file', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
-    const doc = await PatientDocument.findOne({ documentId: req.params.id });
+    let doc = await PatientDocument.findOne({
+      $or: [{ documentId: req.params.id }, { filename: req.params.id }],
+    });
+    if (!doc && mongoose.Types.ObjectId.isValid(req.params.id)) {
+      doc = await PatientDocument.findById(req.params.id);
+    }
     if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
 
     const filePath = path.join(uploadDir, doc.filename);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: 'File not found on server' });
     }
-    res.download(filePath, doc.originalName);
+    res.download(filePath, doc.originalName || doc.filename);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -175,12 +181,24 @@ router.get('/documents/:id/file', protect, requireRole('admin', 'hospital_office
 // DELETE /api/admin/documents/:id
 router.delete('/documents/:id', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
-    const doc = await PatientDocument.findOneAndDelete({ documentId: req.params.id });
+    let doc = await PatientDocument.findOne({
+      $or: [{ documentId: req.params.id }, { filename: req.params.id }],
+    });
+    if (!doc && mongoose.Types.ObjectId.isValid(req.params.id)) {
+      doc = await PatientDocument.findById(req.params.id);
+    }
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
 
     const filePath = path.join(uploadDir, doc.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn('Could not delete file:', e.message);
+      }
+    }
 
+    await PatientDocument.deleteOne({ _id: doc._id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -331,7 +349,7 @@ router.get('/users', protect, requireRole('admin', 'hospital_officer'), async (r
 });
 
 // DELETE /api/admin/users/:email
-router.delete('/users/:email', protect, requireRole('admin'), async (req, res) => {
+router.delete('/users/:email', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
     const user = await User.findOneAndDelete({ email: decodeURIComponent(req.params.email) });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -405,6 +423,71 @@ router.get('/queue', protect, requireRole('admin', 'hospital_officer'), async (r
   try {
     const queue = await Queue.find().sort({ estimatedTime: 1 });
     res.json({ success: true, queue });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/queue/reorder  — must be defined BEFORE /:token routes
+router.put('/queue/reorder', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
+  try {
+    const { action, token, direction } = req.body;
+
+    // Fetch ALL active queue entries. Sort by estimatedTime first, then by _id
+    // as a stable tiebreaker so entries with identical times have a consistent order.
+    const queue = await Queue.find({ status: { $nin: ['Completed', 'Cancelled', 'No Show'] } })
+      .sort({ estimatedTime: 1, _id: 1 });
+
+    // Ensure every entry has a unique estimatedTime (10-min apart) so swaps are
+    // meaningful even when entries were created with the same timestamp.
+    const baseTime = queue[0]?.estimatedTime
+      ? new Date(queue[0].estimatedTime)
+      : new Date();
+
+    for (let i = 0; i < queue.length; i++) {
+      const expectedTime = new Date(baseTime.getTime() + i * 10 * 60 * 1000);
+      // Only write if the time needs to change (avoids unnecessary DB writes)
+      if (!queue[i].estimatedTime || queue[i].estimatedTime.getTime() !== expectedTime.getTime()) {
+        await Queue.findByIdAndUpdate(queue[i]._id, { estimatedTime: expectedTime });
+        queue[i].estimatedTime = expectedTime; // keep local copy in sync
+      }
+    }
+
+    if (action === 'move') {
+      const idx = queue.findIndex((q) => q.token === token);
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Token not found in queue' });
+
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= queue.length)
+        return res.status(400).json({ success: false, message: 'Cannot move in that direction' });
+
+      // Swap the now-distinct estimatedTime values
+      const timeA = queue[idx].estimatedTime;
+      const timeB = queue[swapIdx].estimatedTime;
+
+      await Queue.findByIdAndUpdate(queue[idx]._id, { estimatedTime: timeB });
+      await Queue.findByIdAndUpdate(queue[swapIdx]._id, { estimatedTime: timeA });
+
+    } else if (action === 'prioritize_urgency') {
+      const URGENCY_ORDER = { Emergency: 0, High: 1, Medium: 2, Low: 3, Routine: 4 };
+
+      // Sort by urgency priority, preserving relative order within same urgency
+      const sorted = [...queue].sort((a, b) => {
+        const ua = URGENCY_ORDER[a.urgency] ?? 5;
+        const ub = URGENCY_ORDER[b.urgency] ?? 5;
+        return ua - ub;
+      });
+
+      for (let i = 0; i < sorted.length; i++) {
+        const newTime = new Date(baseTime.getTime() + i * 10 * 60 * 1000);
+        await Queue.findByIdAndUpdate(sorted[i]._id, { estimatedTime: newTime });
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'Unknown action' });
+    }
+
+    const updatedQueue = await Queue.find().sort({ estimatedTime: 1 });
+    res.json({ success: true, queue: updatedQueue });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

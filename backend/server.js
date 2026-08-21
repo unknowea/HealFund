@@ -61,6 +61,7 @@ app.use('/api/queue', queueRoutes);
 app.use('/api/financial-cases', financialRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/admin-messages', messageRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
 

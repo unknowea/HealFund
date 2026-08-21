@@ -1545,9 +1545,14 @@ function QueueTab() {
         setQueue(data.queue);
         setToast(`Queue order updated and 10-minute consultation times recalculated.`);
         setTimeout(() => setToast(''), 4000);
+      } else {
+        setToast(`❌ Reorder failed: ${data.message || 'Unknown error'}`);
+        setTimeout(() => setToast(''), 5000);
       }
     } catch (err) {
       console.error(err);
+      setToast(`❌ Network error: ${err.message}`);
+      setTimeout(() => setToast(''), 5000);
     }
   };
 
