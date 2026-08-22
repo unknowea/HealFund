@@ -4,11 +4,17 @@ import { protect, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const serializePublicCase = (financialCase) => {
+  const data = financialCase.toObject ? financialCase.toObject() : { ...financialCase };
+  delete data.donations;
+  return data;
+};
+
 // GET /api/financial-cases — public
 router.get('/', async (req, res) => {
   try {
     const cases = await FinancialCase.find({ status: 'Active' }).sort({ createdAt: -1 });
-    res.json({ success: true, cases });
+    res.json({ success: true, cases: cases.map(serializePublicCase) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -20,7 +26,7 @@ router.get('/:id', async (req, res) => {
     const financialCase = await FinancialCase.findOne({ caseId: req.params.id });
     if (!financialCase)
       return res.status(404).json({ success: false, message: 'Case not found' });
-    res.json({ success: true, case: financialCase });
+    res.json({ success: true, case: serializePublicCase(financialCase) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -39,10 +45,19 @@ router.post('/', protect, requireRole('admin', 'hospital_officer'), async (req, 
 // POST /api/financial-cases/:id/donate — public
 router.post('/:id/donate', async (req, res) => {
   try {
-    const { amount, donorName, paymentMethod } = req.body;
+    const { amount, donorName, accountNumber, paymentMethod } = req.body;
     const donationVal = parseFloat(amount);
     if (!donationVal || donationVal <= 0)
       return res.status(400).json({ success: false, message: 'Valid donation amount required' });
+    if (!donorName?.trim())
+      return res.status(400).json({ success: false, message: 'Donor name is required' });
+    if (!accountNumber?.trim())
+      return res.status(400).json({ success: false, message: 'Payment account or reference is required' });
+
+    const selectedPaymentMethod = paymentMethod || 'Telebirr';
+    const paymentMethods = ['Telebirr', 'CBE Birr', 'Chapa / Bank Transfer'];
+    if (!paymentMethods.includes(selectedPaymentMethod))
+      return res.status(400).json({ success: false, message: 'Unsupported payment method' });
 
     const financialCase = await FinancialCase.findOne({ caseId: req.params.id });
     if (!financialCase)
@@ -60,9 +75,10 @@ router.post('/:id/donate', async (req, res) => {
     financialCase.raisedAmount += actualDonation;
     financialCase.donorsCount += 1;
     financialCase.donations.push({
-      donorName: donorName || 'Anonymous Supporter',
+      donorName: donorName.trim(),
+      accountNumber: accountNumber.trim(),
       amount: actualDonation,
-      paymentMethod: paymentMethod || 'Telebirr',
+      paymentMethod: selectedPaymentMethod,
     });
 
     // Auto-close if fully funded
@@ -79,7 +95,7 @@ router.post('/:id/donate', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Thank you ${donorName || 'Supporter'}! Donation of ${actualDonation} ETB via ${paymentMethod || 'Telebirr'} processed.${cappedMsg}`,
+      message: `Thank you ${donorName.trim()}! Donation of ${actualDonation} ETB via ${selectedPaymentMethod} processed.${cappedMsg}`,
       case: financialCase,
     });
   } catch (err) {

@@ -5,7 +5,6 @@
 
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 import connectDB from './config/db.js';
 
 import Hospital from './models/Hospital.js';
@@ -43,43 +42,43 @@ const hospitals = await Hospital.insertMany([
 console.log(`✅ Seeded ${hospitals.length} hospitals`);
 
 // ─── USERS ─────────────────────────────────────────────────────────────────────
-// Note: passwords are hashed by the User model pre-save hook
-const users = await User.insertMany([
-  {
+// Use .create() so the pre-save hook hashes the passwords correctly
+const users = await Promise.all([
+  User.create({
     name: 'Ahmed Kamara',
     email: 'you@example.com',
-    password: await bcrypt.hash('password123', 10),
+    password: 'password123',
     age: 42,
     gender: 'Male',
     location: 'Addis Ababa, Lideta',
     patientId: 'HF-0247',
     status: 'Verified',
     role: 'patient',
-  },
-  {
+  }),
+  User.create({
     name: 'Dr. Tadesse Bekele',
     email: 'staff@zewditu.gov.et',
-    password: await bcrypt.hash('hospital123', 10),
+    password: 'hospital123',
     role: 'hospital_officer',
     hospitalId: 'HOSP-001',
     hospitalName: 'Zewditu Memorial Hospital',
-  },
-  {
+  }),
+  User.create({
     name: 'Dr. M. Worku',
     email: 'admin@zewditu.gov.et',
-    password: await bcrypt.hash('admin123', 10),
+    password: 'admin123',
     role: 'admin',
     hospitalId: 'HOSP-001',
     hospitalName: 'Zewditu Memorial Hospital',
-  },
-  {
+  }),
+  User.create({
     name: 'HealFund Owner',
     email: 'HealFund2006@gmail.com',
     password: await bcrypt.hash('healFund@2026', 10),
     role: 'admin',
     hospitalId: 'HOSP-001',
     hospitalName: 'Zewditu Memorial Hospital',
-  },
+  }),
 ]);
 console.log(`✅ Seeded ${users.length} users`);
 
@@ -109,33 +108,6 @@ const queue = await Queue.insertMany([
   },
 ]);
 console.log(`✅ Seeded ${queue.length} queue items`);
-
-// ─── APPOINTMENTS ──────────────────────────────────────────────────────────────
-const appointments = await Appointment.insertMany([
-  {
-    appointmentId: 'APT-1001',
-    patientId: 'HF-0247',
-    patientName: 'Ahmed Kamara',
-    hospitalName: 'Zewditu Memorial Hospital',
-    doctorName: 'Dr. M. Worku',
-    department: 'Cardiology',
-    datetime: new Date('2026-08-25T10:00:00Z'),
-    status: 'Confirmed',
-    queueToken: 'C-023',
-  },
-  {
-    appointmentId: 'APT-1002',
-    patientId: 'HF-0247',
-    patientName: 'Ahmed Kamara',
-    hospitalName: 'Zewditu Memorial Hospital',
-    doctorName: 'Dr. S. Alemu',
-    department: 'Follow-up Clinic',
-    datetime: new Date('2026-09-02T14:30:00Z'),
-    status: 'Pending',
-    queueToken: 'C-048',
-  },
-]);
-console.log(`✅ Seeded ${appointments.length} appointments`);
 
 // ─── FINANCIAL CASES ───────────────────────────────────────────────────────────
 const financialCases = await FinancialCase.insertMany([

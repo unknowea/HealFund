@@ -94,19 +94,6 @@ export const replyToMessage = (id, replyText) =>
 export const deleteMessage = (id) =>
   handle(fetch(`${BASE}/messages/${id}`, { method: 'DELETE', headers: headers() }));
 
-// ─── CONVERSATIONS (Live Chat) ─────────────────────────────────────────────────
-export const getConversations = () =>
-  handle(fetch(`${BASE}/conversations`, { headers: headers() }));
-
-export const sendChatMessage = (conversationId, content, patientId, patientName) =>
-  handle(fetch(`${BASE}/conversations/messages`, {
-    method: 'POST', headers: headers(),
-    body: JSON.stringify({ conversationId, content, patientId, patientName }),
-  }));
-
-export const markConversationRead = (conversationId) =>
-  handle(fetch(`${BASE}/conversations/${conversationId}/read`, { method: 'PUT', headers: headers() }));
-
 // ─── FILE UPLOAD ───────────────────────────────────────────────────────────────
 export const uploadFile = (file) => {
   const formData = new FormData();

@@ -10,7 +10,7 @@ export default function Navbar({
 }) {
   return (
     <nav className="navbar">
-      <div className="logo" onClick={() => setActiveModule('inbox')} style={{ cursor: 'pointer' }}>
+      <div className="logo" onClick={() => setActiveModule('dashboard')} style={{ cursor: 'pointer' }}>
         <i className="fas fa-shield-alt"></i>
         <span>{currentLang === 'am' ? 'ሂል ፈንድ — አስተዳዳሪ' : 'HealFund Admin'}</span>
       </div>
@@ -32,13 +32,6 @@ export default function Navbar({
           <span>{currentLang === 'am' ? 'የታካሚ ተራ' : 'Patient Queue'}</span>
         </button>
 
-        <button
-          className={`module-tab ${activeModule === 'messages' ? 'active' : ''}`}
-          onClick={() => setActiveModule('messages')}
-        >
-          <i className="fas fa-comments"></i>
-          <span>{currentLang === 'am' ? 'መልዕክቶች' : 'Messages'}</span>
-        </button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

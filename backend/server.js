@@ -13,7 +13,6 @@ import queueRoutes from './routes/queue.js';
 import financialRoutes from './routes/financial.js';
 import fileRoutes from './routes/files.js';
 import messageRoutes from './routes/messages.js';
-import conversationRoutes from './routes/conversations.js';
 import adminRoutes from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +61,6 @@ app.use('/api/financial-cases', financialRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/admin-messages', messageRoutes);
-app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ─── HEALTH CHECK ──────────────────────────────────────────────────────────────
@@ -75,7 +73,7 @@ app.get('/api/public/stats', async (req, res) => {
   try {
     const [totalUsers, totalHospitals, totalFinancialCases] = await Promise.all([
       (await import('./models/User.js')).default.countDocuments({ role: 'patient' }),
-      (await import('./models/Hospital.js')).default.countDocuments(),
+      (await import('./models/Hospital.js')).default.countDocuments({ hospitalId: 'HOSP-001' }),
       (await import('./models/FinancialCase.js')).default.countDocuments({ status: 'Active' }),
     ]);
     res.json({ success: true, stats: { totalUsers, totalHospitals, totalFinancialCases } });

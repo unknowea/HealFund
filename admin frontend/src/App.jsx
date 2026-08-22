@@ -57,7 +57,7 @@ export default function App() {
           <AdminPortal
             currentLang={currentLang}
             currentUser={currentUser}
-            activeTab={activeModule === 'inbox' ? 'messages' : activeModule === 'messages' ? 'chat' : activeModule}
+            activeTab={activeModule === 'inbox' ? 'messages' : activeModule}
             onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
           />
@@ -82,7 +82,6 @@ export default function App() {
               <h4>Administration</h4>
               <button onClick={() => setActiveModule('users')}>Users</button>
               <button onClick={() => setActiveModule('financial')}>Financials</button>
-              <button onClick={() => setActiveModule('hospitals')}>Hospitals</button>
             </div>
             <div className="footer-contact">
               <h4>Contact</h4>

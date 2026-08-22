@@ -68,25 +68,7 @@ const findApptById = async (id) => {
   return appt;
 };
 
-// GET /api/appointments/:id/files/:fileId — view or download an appointment file
-router.get('/:id/files/:fileId', async (req, res) => {
-  try {
-    const appointment = await findApptById(req.params.id);
-    const file = appointment?.supportingFiles?.find((item) => item.id === req.params.fileId);
-    if (!file) return res.status(404).json({ success: false, message: 'Appointment file not found' });
-
-    const filePath = path.join(uploadDir, file.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File is no longer available' });
-
-    const disposition = req.query.download === 'true' ? 'attachment' : 'inline';
-    res.setHeader('Content-Disposition', `${disposition}; filename="${path.basename(file.originalName)}"`);
-    res.sendFile(filePath);
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// GET /api/appointments — patients see only their own; admins can filter by patientId
+// GET /api/appointments — patients see ONLY their own; admins can filter by patientId
 router.get('/', protect, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin' || req.user.role === 'hospital_officer';
@@ -95,22 +77,24 @@ router.get('/', protect, async (req, res) => {
     let filter = {};
 
     if (isAdmin) {
-      // Admin can filter by any patientId or see all
+      // Admins can optionally filter by any patientId
       if (patientId) {
         filter.$or = [{ patientId }, { bookedByUserId: patientId }];
       }
     } else {
-      // Patients ONLY see their own appointments — use their DB _id AND their patientId
-      const userId = req.user.id; // MongoDB _id as string
-      // Load patient's patientId from DB to match both fields
+      // PATIENTS: always filter by their own identity — ignore any patientId query param
+      const userId = req.user.id;
       const { default: User } = await import('../models/User.js');
       const user = await User.findById(userId).select('patientId').lean();
       const pid = user?.patientId;
 
-      filter.$or = [
-        { bookedByUserId: userId },
-        ...(pid ? [{ patientId: pid }, { bookedByUserId: pid }] : []),
-      ];
+      // Match appointments booked by this user OR with their patientId
+      const conditions = [{ bookedByUserId: userId }];
+      if (pid) {
+        conditions.push({ patientId: pid });
+        conditions.push({ bookedByUserId: pid });
+      }
+      filter.$or = conditions;
     }
 
     if (status && status !== 'All') {
@@ -281,7 +265,7 @@ router.put('/:id/approve', async (req, res) => {
         durationMinutes: 10,
         status: 'Scheduled',
         estimatedTime: new Date(Date.now() + 86400000),
-        requiredDocuments: (appt.supportingFiles || []).map((f) => f.originalName).concat(['Patient ID Card']),
+        requiredDocuments: (appt.supportingFiles || []).map((f) => f.originalName).concat(['Patient ID / QR Card']),
       });
     } else {
       queueEntry.token = queueToken;

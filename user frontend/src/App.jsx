@@ -6,8 +6,6 @@ import QueuePortal from './components/QueuePortal';
 import FinancialAssistancePortal from './components/FinancialAssistancePortal';
 import AboutUs from './components/AboutUs';
 import ContactUs from './components/ContactUs';
-import AdminMessaging from './components/AdminMessaging';
-import Messaging from './components/Messaging';
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('home');
@@ -52,7 +50,7 @@ export default function App() {
     setActiveModule('dashboard');
   };
 
-  const isProtectedRoute = ['dashboard', 'appointments', 'files', 'queue', 'admin-message', 'messages'].includes(activeModule);
+  const isProtectedRoute = ['dashboard', 'appointments', 'files', 'queue'].includes(activeModule);
 
   return (
     <div className="app-container">
@@ -105,13 +103,6 @@ export default function App() {
               <QueuePortal currentLang={currentLang} currentUser={currentUser} />
             )}
 
-            {activeModule === 'messages' && (
-              <Messaging currentLang={currentLang} currentUser={currentUser} />
-            )}
-
-            {activeModule === 'admin-message' && currentUser && (
-              <AdminMessaging currentLang={currentLang} currentUser={currentUser} />
-            )}
           </>
         )}
 

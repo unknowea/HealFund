@@ -8,6 +8,7 @@ export default function FinancialAssistancePortal({ currentLang }) {
   const [donationAmount, setDonationAmount] = useState('1000');
   const [donorName, setDonorName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Telebirr');
+  const [accountNumber, setAccountNumber] = useState('');
   const [donationSuccessMsg, setDonationSuccessMsg] = useState('');
   const [donating, setDonating] = useState(false);
 
@@ -48,22 +49,15 @@ export default function FinancialAssistancePortal({ currentLang }) {
     try {
       const data = await donate(selectedCase.caseId, {
         amount: actualAmt,
-        donorName: donorName || 'Anonymous Supporter',
+        donorName,
+        accountNumber,
         paymentMethod,
       });
       setCases(cases.map((c) => c.caseId === selectedCase.caseId ? data.case : c));
       setDonationSuccessMsg(`🎉 Thank you! ${data.message}`);
       setSelectedCase(null);
     } catch (err) {
-      // Optimistic update on network failure
-      const amt = parseFloat(donationAmount) || 1000;
-      setCases(cases.map((c) =>
-        c.caseId === selectedCase.caseId
-          ? { ...c, raisedAmount: c.raisedAmount + amt, donorsCount: c.donorsCount + 1 }
-          : c
-      ));
-      setDonationSuccessMsg(`🎉 Thank you! Donation of ${amt} ETB via ${paymentMethod} processed.`);
-      setSelectedCase(null);
+      setDonationSuccessMsg(`Donation failed: ${err.message}`);
     } finally {
       setDonating(false);
     }
@@ -161,8 +155,8 @@ export default function FinancialAssistancePortal({ currentLang }) {
             </p>
             <form onSubmit={handleDonate}>
               <div className="form-group">
-                <label>Your Name (Optional)</label>
-                <input type="text" placeholder="e.g. Samuel Girma or Anonymous" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
+                <label>Donor Name *</label>
+                <input type="text" placeholder="e.g. Samuel Girma" value={donorName} onChange={(e) => setDonorName(e.target.value)} required />
               </div>
               <div className="form-group">
                 <label>Donation Amount (ETB) *</label>
@@ -180,6 +174,16 @@ export default function FinancialAssistancePortal({ currentLang }) {
                   <option value="CBE Birr">CBE Birr</option>
                   <option value="Chapa / Bank Transfer">Chapa / Bank Card</option>
                 </select>
+              </div>
+              <div className="form-group">
+                <label>{paymentMethod === 'Chapa / Bank Transfer' ? 'Bank/Card Account or Transaction Reference *' : `${paymentMethod} Account or Phone Number *`}</label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder={paymentMethod === 'Telebirr' ? 'e.g. 0911 234 567' : paymentMethod === 'CBE Birr' ? 'CBE Birr account number' : 'Bank/card or Chapa reference'}
+                  required
+                />
               </div>
               <button type="submit" className="btn btn-success" style={{ width: '100%', padding: '12px', marginTop: '10px' }} disabled={donating}>
                 {donating ? <><i className="fas fa-spinner fa-spin"></i> Processing...</> : <><i className="fas fa-lock"></i> Process {donationAmount || '1000'} ETB Donation</>}

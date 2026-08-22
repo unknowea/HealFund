@@ -1,5 +1,17 @@
 import mongoose from 'mongoose';
 
+const supportingFileSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    originalName: { type: String, required: true },
+    filename: { type: String, required: true },
+    size: { type: String },
+    type: { type: String },
+    uploadDate: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const appointmentSchema = new mongoose.Schema(
   {
     appointmentId: { type: String, unique: true },
@@ -30,16 +42,7 @@ const appointmentSchema = new mongoose.Schema(
       default: 'Pending Review',
     },
     queueToken: { type: String },
-    supportingFiles: [
-      {
-        id: String,
-        originalName: String,
-        filename: String,
-        size: String,
-        type: String,
-        uploadDate: Date,
-      },
-    ],
+    supportingFiles: { type: [supportingFileSchema], default: [] },
     requestedDocuments: [{ type: String }],
     adminNote: { type: String },
     rejectionReason: { type: String },

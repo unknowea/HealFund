@@ -44,7 +44,7 @@ router.get('/stats', protect, requireRole('admin', 'hospital_officer'), async (r
     ] = await Promise.all([
       User.countDocuments({ role: 'patient' }),
       Appointment.countDocuments(),
-      Hospital.countDocuments(),
+      Hospital.countDocuments({ hospitalId: 'HOSP-001' }),
       FinancialCase.find(),
       PatientDocument.countDocuments(),
       PatientDocument.countDocuments({ status: 'Pending Verification' }),
@@ -172,7 +172,11 @@ router.get('/documents/:id/file', protect, requireRole('admin', 'hospital_office
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: 'File not found on server' });
     }
-    res.download(filePath, doc.originalName || doc.filename);
+    if (req.query.action === 'view') {
+      res.sendFile(filePath, { headers: { 'Content-Disposition': `inline; filename="${doc.originalName || doc.filename}"` } });
+    } else {
+      res.download(filePath, doc.originalName || doc.filename);
+    }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -364,7 +368,7 @@ router.delete('/users/:email', protect, requireRole('admin', 'hospital_officer')
 // GET /api/admin/hospitals
 router.get('/hospitals', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
-    const hospitals = await Hospital.find().sort({ name: 1 });
+    const hospitals = await Hospital.find({ hospitalId: 'HOSP-001' });
     const serialized = hospitals.map((h) => ({
       id: h.hospitalId,
       name: h.name,
@@ -383,10 +387,7 @@ router.get('/hospitals', protect, requireRole('admin', 'hospital_officer'), asyn
 // POST /api/admin/hospitals
 router.post('/hospitals', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
-    const count = await Hospital.countDocuments();
-    const hospitalId = `HOSP-${String(count + 1).padStart(3, '0')}`;
-    const hospital = await Hospital.create({ ...req.body, hospitalId });
-    res.status(201).json({ success: true, hospital });
+    return res.status(403).json({ success: false, message: 'HealFund supports Zewditu Memorial Hospital only' });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -408,6 +409,9 @@ router.put('/hospitals/:id/verify', protect, requireRole('admin', 'hospital_offi
 // DELETE /api/admin/hospitals/:id
 router.delete('/hospitals/:id', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
+    if (req.params.id === 'HOSP-001') {
+      return res.status(403).json({ success: false, message: 'Zewditu Memorial Hospital is the sole HealFund hospital and cannot be deleted' });
+    }
     const hospital = await Hospital.findOneAndDelete({ hospitalId: req.params.id });
     if (!hospital) return res.status(404).json({ success: false, message: 'Hospital not found' });
     res.json({ success: true });

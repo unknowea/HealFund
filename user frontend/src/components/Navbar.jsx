@@ -64,16 +64,6 @@ export default function Navbar({
           <span>{currentLang === 'am' ? 'አግኙን' : 'Contact Us'}</span>
         </button>
 
-        {currentUser && (
-          <button
-            className={`module-tab ${activeModule === 'admin-message' ? 'active' : ''}`}
-            onClick={() => setActiveModule('admin-message')}
-            title={currentLang === 'am' ? 'መልዕክት ላክ' : 'Message Admin'}
-          >
-            <i className="fas fa-comments"></i>
-            <span>{currentLang === 'am' ? 'መልዕክት' : 'Message'}</span>
-          </button>
-        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>

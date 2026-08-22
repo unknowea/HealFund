@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import WhatsAppMessaging from './WhatsAppMessaging';
 
 // --- API Helper ---
 const getAuthHeaders = () => {
@@ -12,6 +11,28 @@ const getAuthHeaders = () => {
 const API = (path, opts = {}) => {
   const { headers: extraHeaders, ...rest } = opts;
   return fetch(path, { headers: { ...getAuthHeaders(), ...extraHeaders }, ...rest });
+};
+
+const openDocumentFile = async (documentId, action = 'view') => {
+  const fileWindow = window.open('', '_blank');
+  try {
+    const response = await API(`/api/admin/documents/${encodeURIComponent(documentId)}/file?action=${action}`);
+    if (!response.ok) throw new Error('Unable to access this document');
+    const fileUrl = URL.createObjectURL(await response.blob());
+    if (action === 'download') {
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = documentId;
+      link.click();
+      fileWindow?.close();
+      URL.revokeObjectURL(fileUrl);
+    } else if (fileWindow) {
+      fileWindow.location.href = fileUrl;
+    }
+  } catch (error) {
+    fileWindow?.close();
+    alert(error.message);
+  }
 };
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -115,7 +136,6 @@ function DashboardTab({ stats, log }) {
         <StatCard icon="fas fa-file-medical" label="Uploaded Documents" value={fmt(stats.totalDocuments)} color="#6f42c1" sub={stats.totalDocuments === 0 ? 'No files uploaded yet' : `${stats.pendingDocuments} awaiting review`} />
         <StatCard icon="fas fa-hand-holding-heart" label="Financial Cases" value={fmt(stats.totalFinancialCases)} color="#e07b00" sub={`${fmt(stats.totalDonors)} total donors`} />
         <StatCard icon="fas fa-calendar-check" label="Appointments" value={fmt(stats.totalAppointments)} color="#078930" />
-        <StatCard icon="fas fa-hospital" label="Hospitals" value={fmt(stats.totalHospitals)} color="#078930" />
       </div>
 
       {/* Document verification summary */}
@@ -385,12 +405,11 @@ function DocumentsTab() {
                         onClick={() => { openDetail(doc); }}>
                         <i className="fas fa-check-square"></i>
                       </button>
-                      <a href={`/api/admin/documents/${doc.id}/file`} target="_blank" rel="noreferrer"
-                        className="admin-btn-warning" title="Download Confidential File (Admin Only)"
+                      <button type="button" className="admin-btn-warning" title="Open Confidential File (Admin Only)"
                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '8px', textDecoration: 'none' }}
-                        onClick={(e) => e.stopPropagation()}>
-                        <i className="fas fa-download"></i>
-                      </a>
+                        onClick={(e) => { e.stopPropagation(); openDocumentFile(doc.id); }}>
+                        <i className="fas fa-eye"></i>
+                      </button>
                       <button className="admin-btn-danger" title="Delete"
                         onClick={() => handleDelete(doc.id)}>
                         <i className="fas fa-trash"></i>
@@ -445,10 +464,14 @@ function DocumentsTab() {
 
             {/* View / Download Privacy File */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <a href={`/api/admin/documents/${selected.id}/file`} target="_blank" rel="noreferrer"
-                className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '8px 18px' }}>
-                <i className="fas fa-download"></i> Inspect & Download Privacy File
-              </a>
+              <button type="button" className="btn btn-secondary" onClick={() => openDocumentFile(selected.id)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '8px 18px' }}>
+                <i className="fas fa-eye"></i> Open Privacy File
+              </button>
+              <button type="button" className="btn btn-outline" onClick={() => openDocumentFile(selected.id, 'download')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '8px 18px' }}>
+                <i className="fas fa-download"></i> Download
+              </button>
               {selected.queueToken && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#d4f0e0', color: '#078930', padding: '8px 14px', borderRadius: '8px', fontWeight: 700, fontSize: '13px' }}>
                   <i className="fas fa-ticket-alt"></i> Waiting List Token: {selected.queueToken}
@@ -734,6 +757,21 @@ function FinancialTab() {
                 </div>
                 <div className="progress-container"><div className="progress-bar-fill" style={{ width: pct + '%' }}></div></div>
                 <div style={{ fontSize: '13px', color: '#7a8a9e', margin: '6px 0 14px' }}><i className="fas fa-users" style={{ marginRight: '4px' }}></i>{fmt(c.donorsCount)} donors</div>
+                {c.donations?.length > 0 && (
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px', marginBottom: '14px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f3b5e', marginBottom: '6px' }}>
+                      <i className="fas fa-receipt" style={{ marginRight: '5px' }}></i> Donation History
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {c.donations.slice().reverse().map((donation, index) => (
+                        <div key={donation._id || index} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', color: '#4a5a6e' }}>
+                          <span><strong>{donation.donorName}</strong> · {donation.paymentMethod}</span>
+                          <strong style={{ color: '#078930', whiteSpace: 'nowrap' }}>{fmt(donation.amount)} ETB</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button className={`btn ${c.status === 'Active' ? 'btn-outline' : 'btn-success'}`} style={{ flex: 1, fontSize: '13px', padding: '6px 12px' }} onClick={() => handleStatusToggle(c.caseId, c.status)}>
                     {c.status === 'Active' ? <><i className="fas fa-pause"></i> Close</> : <><i className="fas fa-play"></i> Reopen</>}
@@ -766,94 +804,6 @@ function FinancialTab() {
               <div className="form-group"><label>Description</label><textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
               <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={saving}>
                 {saving ? <><i className="fas fa-spinner fa-spin"></i> Creating…</> : <><i className="fas fa-check"></i> Create Case</>}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- Hospitals Tab ---
-function HospitalsTab() {
-  const [hospitals, setHospitals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', location: '', level: '', phone: '', departments: '' });
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try { const res = await API('/api/admin/hospitals'); const data = await res.json(); if (data.success) setHospitals(data.hospitals); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, []);
-
-  const handleVerify = async (id) => { await API(`/api/admin/hospitals/${id}/verify`, { method: 'PUT' }); load(); };
-  const handleDelete = async (id) => { await API(`/api/admin/hospitals/${id}`, { method: 'DELETE' }); load(); };
-  const handleCreate = async (e) => {
-    e.preventDefault(); setSaving(true);
-    try {
-      await API('/api/admin/hospitals', { method: 'POST', body: JSON.stringify({ ...form, departments: form.departments.split(',').map((d) => d.trim()).filter(Boolean) }) });
-      setShowForm(false); setForm({ name: '', location: '', level: '', phone: '', departments: '' }); load();
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <div>
-      <div className="admin-toolbar">
-        <h3 style={{ color: '#0f3b5e', fontSize: '17px', fontWeight: 700 }}><i className="fas fa-hospital" style={{ color: '#17a2b8' }}></i> Hospitals</h3>
-        <button className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '14px' }} onClick={() => setShowForm(true)}><i className="fas fa-plus"></i> Add Hospital</button>
-      </div>
-      {loading ? <div className="admin-loading"><i className="fas fa-spinner fa-spin"></i> Loading hospitals…</div> : (
-        <div className="card">
-          <table className="admin-table">
-            <thead><tr><th>ID</th><th>Name</th><th>Location</th><th>Level</th><th>Departments</th><th>Phone</th><th>Verified</th><th>Actions</th></tr></thead>
-            <tbody>
-              {hospitals.map((h) => (
-                <tr key={h.id}>
-                  <td><code className="admin-code">{h.id}</code></td>
-                  <td style={{ fontWeight: 600 }}>{h.name}</td>
-                  <td style={{ fontSize: '13px' }}>{h.location}</td>
-                  <td style={{ fontSize: '13px', color: '#4a5a6e' }}>{h.level}</td>
-                  <td><div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>{(h.departments || []).slice(0, 3).map((d) => <span key={d} className="admin-dept-pill">{d}</span>)}{h.departments && h.departments.length > 3 && <span className="admin-dept-pill">+{h.departments.length - 3}</span>}</div></td>
-                  <td style={{ fontSize: '13px' }}>{h.phone}</td>
-                  <td><span className={`status-badge ${h.verified ? 'status-verified' : 'status-pending'}`}>{h.verified ? <><i className="fas fa-check-circle"></i> Verified</> : 'Unverified'}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button className={h.verified ? 'admin-btn-warning' : 'admin-btn-success'} title={h.verified ? 'Revoke' : 'Verify'} onClick={() => handleVerify(h.id)}><i className={`fas ${h.verified ? 'fa-times-circle' : 'fa-check-circle'}`}></i></button>
-                      <button className="admin-btn-danger" title="Delete" onClick={() => handleDelete(h.id)}><i className="fas fa-trash"></i></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {showForm && (
-        <div className="modal-overlay">
-          <div className="modal-box" style={{ maxWidth: '480px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ color: '#0f3b5e' }}><i className="fas fa-hospital" style={{ color: '#17a2b8' }}></i> Add Hospital</h3>
-              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#7a8a9e' }}>✕</button>
-            </div>
-            <form onSubmit={handleCreate}>
-              <div className="form-group"><label>Hospital Name *</label><input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Location *</label><input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required /></div>
-              <div className="form-grid-2">
-                <div className="form-group"><label>Level</label>
-                  <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
-                    <option value="">Select level</option>
-                    {['Primary Health Care Unit','General Hospital','General & Referral Hospital','Specialized Referral Hospital','Tertiary / Referral Hospital','National Specialized Hospital'].map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div className="form-group"><label>Phone</label><input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              </div>
-              <div className="form-group"><label>Departments <span style={{ color: '#7a8a9e', fontWeight: 400 }}>(comma-separated)</span></label><input type="text" value={form.departments} onChange={(e) => setForm({ ...form, departments: e.target.value })} placeholder="Cardiology, Surgery, Pediatrics" /></div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={saving}>
-                {saving ? <><i className="fas fa-spinner fa-spin"></i> Saving…</> : <><i className="fas fa-plus"></i> Add Hospital</>}
               </button>
             </form>
           </div>
@@ -1276,9 +1226,14 @@ function AppointmentsTab() {
                         <i className="fas fa-file-pdf" style={{ color: '#da121a', marginRight: '6px' }}></i> {f.originalName} ({f.size})
                       </span>
                       {f.id && (
-                        <a href={`/api/admin/documents/${f.id}/file`} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ fontSize: '12px', padding: '4px 10px' }}>
-                          <i className="fas fa-download"></i> View / Download
-                        </a>
+                        <span style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button type="button" onClick={() => openDocumentFile(f.id)} className="btn btn-outline" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                            <i className="fas fa-eye"></i> Open
+                          </button>
+                          <button type="button" onClick={() => openDocumentFile(f.id, 'download')} className="btn btn-outline" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                            <i className="fas fa-download"></i> Download
+                          </button>
+                        </span>
                       )}
                     </div>
                   ))}
@@ -1908,7 +1863,6 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
     { id: 'documents',    label: 'Documents',    icon: 'fas fa-file-medical',   badge: stats?.pendingDocuments || null },
     { id: 'users',        label: 'Users',        icon: 'fas fa-users' },
     { id: 'financial',    label: 'Financials',   icon: 'fas fa-hand-holding-heart' },
-    { id: 'hospitals',    label: 'Hospitals',    icon: 'fas fa-hospital' },
   ];
 
   return (
@@ -1956,9 +1910,7 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
         {activeTab === 'documents'    && <DocumentsTab />}
         {activeTab === 'users'        && <UsersTab />}
         {activeTab === 'financial'    && <FinancialTab />}
-        {activeTab === 'hospitals'    && <HospitalsTab />}
         {activeTab === 'messages'     && <MessagesTab />}
-        {activeTab === 'chat'         && <WhatsAppMessaging currentLang={currentLang} currentUser={adminUser} isAdmin={true} />}
       </div>
     </div>
   );

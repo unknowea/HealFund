@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { getAppointments, createAppointment, uploadFile, sendMessage, getProfile, updateProfile, getPublicStats } from '../api.js';
+import React, { useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
+import { getAppointments, createAppointment, uploadFile, uploadAdditionalAppointmentDocs, sendMessage, getProfile, updateProfile, getPublicStats } from '../api.js';
 
 export default function PatientPortal({
   currentLang, currentUser, onOpenAuth,
@@ -204,7 +205,8 @@ export default function PatientPortal({
   const fetchAppointments = async () => {
     setApptLoading(true);
     try {
-      const data = await getAppointments({ patientId: defaultUser.patientId });
+      // Don't pass patientId — backend determines it from the JWT token
+      const data = await getAppointments({});
       setAppointmentsList(data.appointments || []);
     } catch (err) {
       console.warn('Could not fetch appointments:', err.message);
