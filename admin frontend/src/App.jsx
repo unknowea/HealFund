@@ -88,7 +88,7 @@ export default function App() {
               <p>Zewditu Memorial Hospital</p>
               <p>Lideta / Kirkos Sub-City, Addis Ababa</p>
               <p>HealFundET@gmail.com</p>
-              <p>+251-11-551-8085</p>
+              <p>+251921198350</p>
               <p>Emergency Triage: 24/7</p>
             </div>
           </div>

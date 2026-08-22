@@ -135,6 +135,44 @@ body {
   gap: 12px;
 }
 
+.admin-profile-wrapper {
+  position: relative;
+}
+
+.user-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid #d0e8d8;
+  border-radius: 30px;
+  padding: 4px 14px 4px 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-profile-btn:hover,
+.user-profile-btn.open {
+  background: #e8f4ec;
+  border-color: #078930;
+  box-shadow: 0 2px 8px rgba(7, 137, 48, 0.12);
+}
+
+.admin-dropdown-menu {
+  animation: adminDropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes adminDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .user-profile .avatar-circle {
   width: 38px;
   height: 38px;

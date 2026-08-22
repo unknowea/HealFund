@@ -9,7 +9,7 @@ export const dataStore = {
       level: 'Tertiary / Referral Hospital',
       verified: true,
       departments: ['Cardiology', 'General Surgery', 'Pediatrics', 'Oncology', 'Orthopedics', 'Internal Medicine', 'Neurology'],
-      phone: '+251-11-551-8085',
+      phone: '+251921198350',
     },
   ],
 

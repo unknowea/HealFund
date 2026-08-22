@@ -1864,7 +1864,6 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
     { id: 'users',        label: 'Users',        icon: 'fas fa-users' },
     { id: 'financial',    label: 'Financials',   icon: 'fas fa-hand-holding-heart' },
   ];
-
   return (
     <div className="admin-portal">
       {/* Header */}
@@ -1886,20 +1885,6 @@ export default function AdminPortal({ currentLang, currentUser, activeTab: propA
             <i className="fas fa-sign-out-alt"></i> Logout
           </button>
         </div>
-      </div>
-
-      {/* Tab Nav */}
-      <div className="admin-tabs">
-        {tabs.map((t) => (
-          <button key={t.id} className={`admin-tab-btn ${activeTab === t.id ? 'active' : ''}`}
-            onClick={() => { setActiveTab(t.id); if (t.id === 'dashboard') loadDashboard(); }}>
-            <i className={t.icon}></i>
-            <span>{t.label}</span>
-            {t.badge > 0 && (
-              <span style={{ background: '#da121a', color: '#fff', borderRadius: '30px', padding: '1px 7px', fontSize: '11px', fontWeight: 700 }}>{t.badge}</span>
-            )}
-          </button>
-        ))}
       </div>
 
       {/* Content */}

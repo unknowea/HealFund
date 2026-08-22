@@ -24,6 +24,15 @@ const handle = async (fetchPromise) => {
 export const login = (email, password) =>
   handle(fetch(`${BASE}/auth/login`, { method: 'POST', headers: headers(), body: JSON.stringify({ email, password }) }));
 
+export const sendOtp = (email, purpose = 'signup') =>
+  handle(fetch(`${BASE}/auth/send-otp`, { method: 'POST', headers: headers(), body: JSON.stringify({ email, purpose }) }));
+
+export const verifyOtp = (email, otp, purpose = 'signup') =>
+  handle(fetch(`${BASE}/auth/verify-otp`, { method: 'POST', headers: headers(), body: JSON.stringify({ email, otp, purpose }) }));
+
+export const resetPasswordWithOtp = (email, otp, newPassword) =>
+  handle(fetch(`${BASE}/auth/reset-password`, { method: 'POST', headers: headers(), body: JSON.stringify({ email, otp, newPassword }) }));
+
 export const signup = (payload) =>
   handle(fetch(`${BASE}/auth/signup`, { method: 'POST', headers: headers(), body: JSON.stringify(payload) }));
 
