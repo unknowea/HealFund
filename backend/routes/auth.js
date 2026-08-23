@@ -251,34 +251,19 @@ router.post('/signup', async (req, res) => {
     if (exists)
       return res.status(400).json({ success: false, message: 'Email already registered' });
 
-    // Verify OTP if provided or check if email was verified via OTP
-    if (otp) {
-      const cleanOtp = String(otp).trim();
-      const otpRecord = await Otp.findOne({
-        email: normalizedEmail,
-        otp: cleanOtp,
-        purpose: 'signup',
-        expiresAt: { $gt: new Date() },
-      });
+    // Account creation requires a code verified through /verify-otp.
+    const verifiedOtp = await Otp.findOne({
+      email: normalizedEmail,
+      purpose: 'signup',
+      verified: true,
+      expiresAt: { $gt: new Date() },
+    });
 
-      if (!otpRecord) {
-        return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
-      }
-    } else {
-      // Check if there is a verified OTP session
-      const verifiedOtp = await Otp.findOne({
-        email: normalizedEmail,
-        purpose: 'signup',
-        verified: true,
-        expiresAt: { $gt: new Date() },
+    if (!verifiedOtp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please verify your email with the 6-digit code first.',
       });
-
-      if (!verifiedOtp) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please verify your email with the 6-digit code first.',
-        });
-      }
     }
 
     const user = await User.create({

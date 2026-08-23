@@ -24,18 +24,7 @@ const createTransporter = () => {
     });
   }
 
-  // Fallback / Development transporter: logs messages to console
-  return {
-    sendMail: async (mailOptions) => {
-      console.log('--------------------------------------------------');
-      console.log('📧 [MOCK EMAIL TRANSPORTER] Outgoing Email:');
-      console.log(`To: ${mailOptions.to}`);
-      console.log(`Subject: ${mailOptions.subject}`);
-      console.log(`Text:\n${mailOptions.text}`);
-      console.log('--------------------------------------------------');
-      return { messageId: `mock-${Date.now()}` };
-    },
-  };
+  return null;
 };
 
 const transporter = createTransporter();
@@ -47,6 +36,12 @@ const transporter = createTransporter();
  * @param {string} purpose - Purpose of OTP ('signup', 'login', 'reset-password')
  */
 export const sendOtpEmail = async (toEmail, otp, purpose = 'signup') => {
+  if (!transporter) {
+    throw new Error(
+      'Email delivery is not configured. Set EMAIL_SERVICE, EMAIL_USER, and EMAIL_PASS in backend/.env.'
+    );
+  }
+
   const senderAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'HealFundET@gmail.com';
 
   let purposeTitle = 'Account Verification';
@@ -122,9 +117,7 @@ export const sendOtpEmail = async (toEmail, otp, purpose = 'signup') => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Failed to send email:', error);
-    // Even if transporter fails in local environment, log the code to console so user can continue
-    console.log(`[FALLBACK LOG] OTP for ${toEmail}: ${otp}`);
-    return { success: true, messageId: 'fallback-logged' };
+    throw new Error('Unable to send the verification email. Check the email configuration and try again.');
   }
 };
 

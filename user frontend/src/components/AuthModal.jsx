@@ -231,6 +231,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
 
     setLoading(true);
     try {
+      await verifyOtp(email, otp.trim(), 'signup');
       const data = await signup({
         name,
         email,
@@ -238,7 +239,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
         age,
         gender,
         location,
-        otp: otp.trim(),
       });
       sessionStorage.setItem('healfund_token', data.token);
       sessionStorage.setItem('healfund_user', JSON.stringify(data.user));
