@@ -121,22 +121,6 @@ export default function Navbar({
       </div>
 
       <div className="module-tabs">
-        <button
-          className={`module-tab ${activeModule === 'inbox' ? 'active' : ''}`}
-          onClick={() => setActiveModule('inbox')}
-        >
-          <i className="fas fa-inbox"></i>
-          <span>{currentLang === 'am' ? 'የመልዕክት ሳጥን' : 'Inbox'}</span>
-        </button>
-
-        <button
-          className={`module-tab ${activeModule === 'queue' ? 'active' : ''}`}
-          onClick={() => setActiveModule('queue')}
-        >
-          <i className="fas fa-stream"></i>
-          <span>{currentLang === 'am' ? 'የታካሚ ተራ' : 'Patient Queue'}</span>
-        </button>
-
       </div>
 
       {/* Right Controls: Language Toggle & Clickable Profile */}

@@ -16,9 +16,16 @@ const API = (path, opts = {}) => {
 const openDocumentFile = async (documentId, action = 'view') => {
   const fileWindow = window.open('', '_blank');
   try {
-    const response = await API(`/api/admin/documents/${encodeURIComponent(documentId)}/file?action=${action}`);
-    if (!response.ok) throw new Error('Unable to access this document');
-    const fileUrl = URL.createObjectURL(await response.blob());
+    const token = localStorage.getItem('healfund_token');
+    const response = await fetch(`/api/admin/documents/${encodeURIComponent(documentId)}/file?action=${action}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Unable to access document (${response.status})`);
+    }
+    const blob = await response.blob();
+    const fileUrl = URL.createObjectURL(blob);
     if (action === 'download') {
       const link = document.createElement('a');
       link.href = fileUrl;

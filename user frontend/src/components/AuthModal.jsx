@@ -517,7 +517,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, currentLang
                 <label>{isAm ? 'ጾታ *' : 'Gender *'}</label>
                 <select value={gender} onChange={(e) => setGender(e.target.value)} required>
                   <option value="" disabled>
-                    {isAm ? 'ይምረጡ' : 'Choose'}
+                    {isAm ? 'ይምረጡ' : 'Select Gender'}
                   </option>
                   <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
                   <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>

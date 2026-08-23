@@ -160,17 +160,25 @@ router.put('/documents/:id/verify', protect, requireRole('admin', 'hospital_offi
 // GET /api/admin/documents/:id/file
 router.get('/documents/:id/file', protect, requireRole('admin', 'hospital_officer'), async (req, res) => {
   try {
+    console.log('🔍 Document file request:', req.params.id);
+    
     let doc = await PatientDocument.findOne({
       $or: [{ documentId: req.params.id }, { filename: req.params.id }],
     });
+    console.log('📋 Document found:', doc ? doc.documentId : 'NOT FOUND');
+    
     if (!doc && mongoose.Types.ObjectId.isValid(req.params.id)) {
       doc = await PatientDocument.findById(req.params.id);
+      console.log('📋 Document found by ID:', doc ? doc.documentId : 'NOT FOUND');
     }
-    if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
+    if (!doc) return res.status(404).json({ success: false, message: 'Document not found in database' });
 
     const filePath = path.join(uploadDir, doc.filename);
+    console.log('📁 Checking file path:', filePath);
+    console.log('✅ File exists:', fs.existsSync(filePath));
+    
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, message: 'File not found on server' });
+      return res.status(404).json({ success: false, message: 'File not found on server. Please re-upload.' });
     }
     if (req.query.action === 'view') {
       res.sendFile(filePath, { headers: { 'Content-Disposition': `inline; filename="${doc.originalName || doc.filename}"` } });
@@ -178,6 +186,7 @@ router.get('/documents/:id/file', protect, requireRole('admin', 'hospital_office
       res.download(filePath, doc.originalName || doc.filename);
     }
   } catch (err) {
+    console.error('❌ Error in document file route:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

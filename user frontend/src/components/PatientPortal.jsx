@@ -730,7 +730,7 @@ export default function PatientPortal({
                     <div className="form-group">
                       <label>{isAm ? 'ጾታ' : 'Gender'}</label>
                       <select value={bookPatientGender} onChange={(e) => setBookPatientGender(e.target.value)}>
-                        <option value="">Choose</option>
+                        <option value="">Select Gender</option>
                         <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
                         <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>
                       </select>
@@ -1025,10 +1025,8 @@ export default function PatientPortal({
                 <div className="form-group" style={{ margin: 0 }}>
                   <label>{isAm ? 'ጾታ' : 'Gender'}</label>
                   <select value={editGender} onChange={(e) => setEditGender(e.target.value)}>
-                    <option value="">Choose</option>
                     <option value="Male">{isAm ? 'ወንድ' : 'Male'}</option>
                     <option value="Female">{isAm ? 'ሴት' : 'Female'}</option>
-                    <option value="Other">{isAm ? 'ሌላ' : 'Other'}</option>
                   </select>
                 </div>
               </div>
