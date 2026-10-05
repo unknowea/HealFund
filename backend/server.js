@@ -23,19 +23,28 @@ connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = [
+  process.env.USER_FRONTEND_URL,
+  process.env.ADMIN_FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+].filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  return /https?:\/\/.*\.(onrender\.com|render\.com)$/i.test(origin);
+};
 
 // ─── CORS ──────────────────────────────────────────────────────────────────────
-// Allow all localhost origins in development + configured production URLs
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow Postman/curl (no origin) or any localhost port during development
-      if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      if (isAllowedOrigin(origin)) {
         return callback(null, true);
       }
-      // Allow configured production frontend URLs
-      const allowed = [process.env.USER_FRONTEND_URL, process.env.ADMIN_FRONTEND_URL].filter(Boolean);
-      if (allowed.includes(origin)) return callback(null, true);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,

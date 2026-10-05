@@ -3,7 +3,7 @@
  * Automatically attaches the JWT token stored for the current session.
  */
 
-const BASE = '/api';
+const BASE = import.meta.env.VITE_API_URL || '/api';
 
 const getToken = () => localStorage.getItem('healfund_token') || sessionStorage.getItem('healfund_token');
 
