@@ -26,6 +26,8 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   process.env.USER_FRONTEND_URL,
   process.env.ADMIN_FRONTEND_URL,
+  process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
   'http://localhost:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3000',
